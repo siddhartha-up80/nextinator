@@ -17,6 +17,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta
+          name="google-site-verification"
+          content="wuKkVFD1dhs31EjQNk81yBbw-temshhMPPc8JGAUC94"
+        />
+      </head>
       <body className={inter.className}>
         <div>
           <SidebarContainer />
