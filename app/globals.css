@@ -57,3 +57,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+::-webkit-scrollbar {
+  width: 8px; /* Width of the scrollbar */
+}
+
+/* Style the scrollbar thumb */
+::-webkit-scrollbar-thumb {
+  background-color: #e95353; /* Color of the thumb */
+  border-radius: 3px; /* Border radius of the thumb */
+}
+
+/* Style the scrollbar track when hovered */
+::-webkit-scrollbar-thumb:hover {
+  background-color: #f38e8e; /* Color of the thumb when hovered */
+  cursor: pointer;
+}
