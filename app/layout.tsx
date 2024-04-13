@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
+import { ThemeProvider } from "./ThemeProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Nextinator | customised data based AI chat",
-  description: "Customised data based AI chat, generate responses tailored to your specific needs",
+  title: "Nextinator | Customised data based AI chat | Custom Data Chat Bot",
+  description:
+    "Nextinator is a custom data based AI chat app. It's like a virtual assistant, but it's based on your custom data. When you chat with Nextinator, it will use your existing notes, emails, and any other data you've added to the app to generate responses. This means that Nextinator will only generate responses that are relevant to you and your data. No more irrelevant notifications or spam from bots. Sign up now and start chatting with your personal AI today!",
+
 };
 
 export default function RootLayout({
@@ -25,7 +28,7 @@ export default function RootLayout({
           />
         </head>
         <body className={inter.className}>
-          <div>{children}</div>
+          <ThemeProvider attribute="class">{children}</ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

@@ -16,8 +16,8 @@ const Page = async () => {
   const allNotes = await prisma?.note.findMany({ where: { userId } });
 
   return (
-    <div className="py-5">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="py-5 md:px-5 mx-auto max-w-7xl">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mx-auto">
         {allNotes.map((note) => (
           <Note note={note} key={note.id} />
         ))}

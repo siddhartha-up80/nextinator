@@ -1,3 +1,5 @@
+"use client";
+
 import { createNoteSchema, CreateNoteSchema } from "@/lib/validation/note";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,33 +22,51 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import LoadingButton from "./loadingbutton";
 import { useRouter } from "next/navigation";
+import { Note } from "@prisma/client";
+import { useState } from "react";
+import { Trash } from "lucide-react";
 
 interface AddnotedialogProps {
   open: boolean;
   setOpen: (open: boolean) => void;
+  noteToEdit?: Note;
 }
 
-const Addnotedialog = ({ open, setOpen }: AddnotedialogProps) => {
+const Addnotedialog = ({ open, setOpen, noteToEdit }: AddnotedialogProps) => {
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
+
   const router = useRouter();
 
   const form = useForm<CreateNoteSchema>({
     resolver: zodResolver(createNoteSchema),
     defaultValues: {
-      title: "",
-      content: "",
+      title: noteToEdit?.title || "",
+      content: noteToEdit?.content || "",
     },
   });
 
   async function onSubmit(input: CreateNoteSchema) {
     console.log(JSON.stringify(input));
     try {
-      const response = await fetch("/api/notes", {
-        method: "POST",
-        body: JSON.stringify(input),
-      });
+      if (noteToEdit) {
+        const response = await fetch("/api/notes", {
+          method: "PUT",
+          body: JSON.stringify({
+            id: noteToEdit.id,
+            ...input,
+          }),
+        });
+        if (!response.ok) throw Error("Status Code: " + response.status);
+      } else {
+        const response = await fetch("/api/notes", {
+          method: "POST",
+          body: JSON.stringify(input),
+        });
 
-      if (!response.ok) throw Error("Status Code: " + response.status);
-      form.reset();
+        if (!response.ok) throw Error("Status Code: " + response.status);
+        form.reset();
+      }
+
       router.refresh();
       setOpen(false);
     } catch (error) {
@@ -55,11 +75,35 @@ const Addnotedialog = ({ open, setOpen }: AddnotedialogProps) => {
     }
   }
 
+  async function deleteNote() {
+    if (!noteToEdit) return;
+    setDeleteInProgress(true);
+
+    try {
+      const response = await fetch("/api/notes", {
+        method: "DELETE",
+        body: JSON.stringify({
+          id: noteToEdit.id,
+        }),
+      });
+
+      if (!response.ok) throw Error("Status Code: " + response.status);
+
+      router.refresh();
+      setOpen(false);
+    } catch (error) {
+      console.error(error);
+      alert("Something went wrong, Please try again later!");
+    } finally {
+      setDeleteInProgress(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent>
+      <DialogContent className="min-w-[60vw]">
         <DialogHeader>
-          <DialogTitle>Add Data</DialogTitle>
+          <DialogTitle>{noteToEdit ? "Edit Data" : "Add Data"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
@@ -83,17 +127,34 @@ const Addnotedialog = ({ open, setOpen }: AddnotedialogProps) => {
                 <FormItem>
                   <FormLabel>Data Content</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Add your data here" {...field} />
+                    <Textarea
+                      placeholder="Add your data here"
+                      className="min-h-[50vh]"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="gap-1 flex-row justify-between">
+              {noteToEdit && (
+                <LoadingButton
+                  variant={"secondary"}
+                  loading={deleteInProgress}
+                  disabled={form.formState.isSubmitting}
+                  onClick={deleteNote}
+                  type="button"
+                  className="w-max"
+                >
+                  <Trash />
+                </LoadingButton>
+              )}
               <LoadingButton
                 type="submit"
                 loading={form.formState.isSubmitting}
-                className="w-full"
+                disabled={deleteInProgress}
+                className="w-max"
               >
                 Submit
               </LoadingButton>

@@ -11,15 +11,13 @@ const SidebarContainer = async () => {
 
   const allNotes = await prisma?.note.findMany({ where: { userId } });
 
-  
-
   return (
     <div>
       <div>
-        <Navbar />
+        <Navbar allNotes={allNotes} />
       </div>
       <div className="hidden md:block">
-        <Sidebar />
+        <Sidebar allNotes={allNotes} />
       </div>
     </div>
   );

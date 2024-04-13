@@ -10,7 +10,7 @@ export default function OptiflowLayout({
       <div>
         <SidebarContainer />
       </div>
-      <div className="md:ml-[300px] md:mt-14 mt-20 p-4 md:p-0">{children}</div>
+      <div className="md:ml-[270px] md:mt-14 mt-20 p-4 md:p-0">{children}</div>
     </div>
   );
 }

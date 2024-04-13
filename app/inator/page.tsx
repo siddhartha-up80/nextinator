@@ -1,10 +1,11 @@
+import AIChatbox from '@/components/main/aichatbox'
 import React from 'react'
 
 const Inator = () => {
   return (
     <div>
-        Inator
-        </div>
+        <AIChatbox/>
+    </div>
   )
 }
 
