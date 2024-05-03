@@ -49,6 +49,7 @@ export async function POST(req: Request) {
       model: "gpt-3.5-turbo",
       stream: true,
       messages: [systemMessage, ...messageTruncated],
+      max_tokens = 2048,
     });
 
     const stream = OpenAIStream(response);
