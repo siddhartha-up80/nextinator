@@ -48,8 +48,8 @@ export async function POST(req: Request) {
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       stream: true,
+      max_tokens: 1000,
       messages: [systemMessage, ...messageTruncated],
-      max_tokens = 2048,
     });
 
     const stream = OpenAIStream(response);
