@@ -24,7 +24,7 @@ import LoadingButton from "./loadingbutton";
 import { useRouter } from "next/navigation";
 import { Note } from "@prisma/client";
 import { useState } from "react";
-import { Trash } from "lucide-react";
+import { CheckCircle, Copy, Trash } from "lucide-react";
 
 interface AddnotedialogProps {
   open: boolean;
@@ -34,6 +34,15 @@ interface AddnotedialogProps {
 
 const Addnotedialog = ({ open, setOpen, noteToEdit }: AddnotedialogProps) => {
   const [deleteInProgress, setDeleteInProgress] = useState(false);
+
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (content: any) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   const router = useRouter();
 
@@ -137,27 +146,52 @@ const Addnotedialog = ({ open, setOpen, noteToEdit }: AddnotedialogProps) => {
                 </FormItem>
               )}
             />
-            <DialogFooter className="gap-1 flex-row justify-between">
-              {noteToEdit && (
-                <LoadingButton
-                  variant={"secondary"}
-                  loading={deleteInProgress}
-                  disabled={form.formState.isSubmitting}
-                  onClick={deleteNote}
-                  type="button"
-                  className="w-max"
-                >
-                  <Trash />
-                </LoadingButton>
-              )}
-              <LoadingButton
-                type="submit"
-                loading={form.formState.isSubmitting}
-                disabled={deleteInProgress}
-                className="w-max"
-              >
-                Submit
-              </LoadingButton>
+            <DialogFooter className="gap-1 flex-row w-full">
+              <div className="gap-1 flex-row w-full justify-between items-center flex">
+                {
+                  <LoadingButton
+                    variant={"secondary"}
+                    loading={deleteInProgress}
+                    disabled={form.formState.isSubmitting}
+                    onClick={() => handleCopy(form.getValues("content"))}
+                    type="button"
+                    className="w-max"
+                  >
+                    {" "}
+                    {copied ? (
+                      <>
+                        Copied <CheckCircle size={18} className="ml-2" />
+                      </>
+                    ) : (
+                      <>
+                        Copy <Copy size={18} className="ml-2" />
+                      </>
+                    )}
+                  </LoadingButton>
+                }
+                <div className="gap-2 flex-row justify-between items-center flex">
+                  {noteToEdit && (
+                    <LoadingButton
+                      variant={"secondary"}
+                      loading={deleteInProgress}
+                      disabled={form.formState.isSubmitting}
+                      onClick={deleteNote}
+                      type="button"
+                      className="w-max"
+                    >
+                      <Trash />
+                    </LoadingButton>
+                  )}
+                  <LoadingButton
+                    type="submit"
+                    loading={form.formState.isSubmitting}
+                    disabled={deleteInProgress}
+                    className="w-max"
+                  >
+                    Submit
+                  </LoadingButton>
+                </div>
+              </div>
             </DialogFooter>
           </form>
         </Form>

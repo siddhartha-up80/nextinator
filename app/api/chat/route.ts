@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const systemMessage: ChatCompletionMessage = {
       role: "system",
       content:
-        "you are an intelligent custom data app. You answer the user's question based on their existing custom data. " +
+        "You are an intelligent custom data app. You answer the user's question based on their existing custom data. You have to only response in text format which contains easy to say words which we speak normally and do not use hard to say words." +
         "The relevant data for this query are:\n" +
         relevantNotes
           ?.map((note) => `Title: ${note.title}\n\nContent:\n${note.content}`)

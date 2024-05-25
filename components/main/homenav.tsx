@@ -50,7 +50,9 @@ const Homenav = () => {
                 }}
               />
             ) : (
-              <Button>Sign In</Button>
+              <Link href={"/inator"}>
+                <Button>Sign In</Button>
+              </Link>
             )}
           </div>
         </div>

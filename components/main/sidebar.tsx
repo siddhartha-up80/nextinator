@@ -68,16 +68,19 @@ const Sidebar = ({ allNotes }: any) => {
               </Link>
             </div>
 
-            <div className="px-4 flex flex-col gap-1 max-h-[50vh] flex-nowrap overflow-auto flex-shrink-0">
+            <div className="px-4 pr-6 flex flex-col gap-1 max-h-[50vh] flex-nowrap overflow-auto flex-shrink-0">
               {allNotes.map((note: any) => (
                 <Button
-                  className="flex gap-2 text-start justify-start pl-2 flex-shrink-0"
+                  className="flex flex-row gap-2 min-h-[40px] text-start justify-start pl-2 flex-shrink-0 w-full h-[fit-content]"
                   variant={"ghost"}
                   size={"sm"}
                   onClick={() => handleNoteClick(note)}
                   key={note.id}
                 >
-                  <Notebook size={18} /> {note?.title}
+                  <Notebook size={18} className="shrink-0 flex" />
+                  <p className="flex-wrap whitespace-normal flex-grow">
+                    {note?.title ? `${note?.title}` : "No Title"}
+                  </p>
                 </Button>
               ))}
             </div>
