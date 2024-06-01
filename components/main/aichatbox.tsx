@@ -102,7 +102,7 @@ export default function AIChatbox({ open, onclose }: AIChatboxProps) {
                 const syntheticEvent = {
                   target: {
                     value:
-                      "Give sample email for applying to the given Job Description:",
+                      "Give sample email for applying to the given Job Description: ",
                   },
                 };
                 handleInputChange(
@@ -118,7 +118,7 @@ export default function AIChatbox({ open, onclose }: AIChatboxProps) {
               onClick={async () => {
                 const syntheticEvent = {
                   target: {
-                    value: "Customize my cover letter for this job role:",
+                    value: "Customize my cover letter for this job role: ",
                   },
                 };
                 handleInputChange(
@@ -135,7 +135,7 @@ export default function AIChatbox({ open, onclose }: AIChatboxProps) {
                 const syntheticEvent = {
                   target: {
                     value:
-                      "Give sample questions with answers which can be asked from me for this role:",
+                      "Give sample questions with answers which can be asked from me for this role: ",
                   },
                 };
                 handleInputChange(
@@ -153,7 +153,7 @@ export default function AIChatbox({ open, onclose }: AIChatboxProps) {
                 const syntheticEvent = {
                   target: {
                     value:
-                      " Give sample answer for this question in 100 words:",
+                      " Give sample answer for this question in 100 words: ",
                   },
                 };
                 handleInputChange(
@@ -162,6 +162,56 @@ export default function AIChatbox({ open, onclose }: AIChatboxProps) {
               }}
             >
               Give sample answer for this question in 100 words:
+            </Button>
+            <Button
+              variant={"secondary"}
+              size={"sm"}
+              onClick={async () => {
+                const syntheticEvent = {
+                  target: {
+                    value: " Give sample answer for this question: ",
+                  },
+                };
+                handleInputChange(
+                  syntheticEvent as React.ChangeEvent<HTMLInputElement>
+                );
+              }}
+            >
+              Give sample answer for this question:
+            </Button>
+            <Button
+              variant={"secondary"}
+              size={"sm"}
+              onClick={async () => {
+                const syntheticEvent = {
+                  target: {
+                    value:
+                      " Give sample answer for this question based on my resume: ",
+                  },
+                };
+                handleInputChange(
+                  syntheticEvent as React.ChangeEvent<HTMLInputElement>
+                );
+              }}
+            >
+              Give sample answer for this question based on my resume:
+            </Button>{" "}
+            <Button
+              variant={"secondary"}
+              size={"sm"}
+              onClick={async () => {
+                const syntheticEvent = {
+                  target: {
+                    value:
+                      " Give sample answer for this question based on my introduction: ",
+                  },
+                };
+                handleInputChange(
+                  syntheticEvent as React.ChangeEvent<HTMLInputElement>
+                );
+              }}
+            >
+              Give sample answer for this question based on my introduction:
             </Button>
           </div>
         )}
