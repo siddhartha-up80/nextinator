@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const systemMessage: ChatCompletionMessage = {
       role: "system",
       content:
-        "You are an intelligent custom data app. You answer the user's question based on their existing custom data. You have to only response in text format which contains easy to say words which we speak normally and do not use hard to say words." +
+        "You are an intelligent custom data app. You answer the user's question based on their existing custom data. You have to only response in text format which contains easy and simple to say words which we speak normally and do not use hard to speak words." +
         "The relevant data for this query are:\n" +
         relevantNotes
           ?.map((note) => `Title: ${note.title}\n\nContent:\n${note.content}`)
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     };
 
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo-16k-0613",
+      model: "gpt-4o",
       stream: true,
       messages: [systemMessage, ...messageTruncated],
     });
