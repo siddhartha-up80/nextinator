@@ -7,7 +7,7 @@ import { ChatCompletionMessage } from "openai/resources/index.mjs";
 import { OpenAIStream, StreamingTextResponse } from "ai";
 import prisma from "@/lib/db/prisma";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
@@ -50,14 +50,14 @@ export async function POST(req: Request) {
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
-      stream: false,
+      stream: true,
       messages: [systemMessage, ...messageTruncated],
     });
 
-    console.log(response.choices[0].message.content);
-    // const stream = OpenAIStream(response);
-    // return new StreamingTextResponse(stream);
-    return new Response(response.choices[0].message.content);
+    // console.log(response.choices[0].message.content);
+    const stream = OpenAIStream(response);
+    return new StreamingTextResponse(stream);
+    // return new Response(response.choices[0].message.content);
   } catch (error) {
     console.log(error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
