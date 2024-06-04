@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       },
     });
 
-    console.log("relevant notes found: ", relevantNotes);
+    // console.log("relevant notes found: ", relevantNotes);
 
     const systemMessage: ChatCompletionMessage = {
       role: "system",
@@ -47,12 +47,14 @@ export async function POST(req: Request) {
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
-      stream: true,
+      stream: false,
       messages: [systemMessage, ...messageTruncated],
     });
 
-    const stream = OpenAIStream(response);
-    return new StreamingTextResponse(stream);
+    console.log(response.choices[0].message.content);
+    // const stream = OpenAIStream(response);
+    // return new StreamingTextResponse(stream);
+    return new Response(response.choices[0].message.content);
   } catch (error) {
     console.log(error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
