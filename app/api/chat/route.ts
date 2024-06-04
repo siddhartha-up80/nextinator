@@ -7,6 +7,9 @@ import { ChatCompletionMessage } from "openai/resources/index.mjs";
 import { OpenAIStream, StreamingTextResponse } from "ai";
 import prisma from "@/lib/db/prisma";
 
+export const maxDuration = 30;
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
