@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       role: "system",
       content:
         "You are an intelligent custom data app. You answer the user's question based on their existing custom data. You have to only response in text format which contains easy and simple to say words which we speak normally and do not use hard to speak words." +
-        "\n If there is no relevant information in notes or the notes are empty, than you can respond normally with your own data. \n" +
+        "\n If there is no relevant information in notes or the notes are empty, than you can ignore the notes and respond normally with your own data. \n" +
         "The relevant data for this query are:\n" +
         relevantNotes
           ?.map((note) => `Title: ${note.title}\n\nContent:\n${note.content}`)
