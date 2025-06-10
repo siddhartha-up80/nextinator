@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationship to note chunks
+  chunks NoteChunk[]
+
+  @@map("notes")
+}
+
+model NoteChunk {
+  id         String   @id @default(cuid())
+  noteId     String
+  content    String
+  chunkIndex Int
+  startIndex Int
+  endIndex   Int
+  vectorId   String   @unique // ID used in the vector database
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relationship to the parent note
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, chunkIndex])
+  @@map("note_chunks")
+}
