@@ -74,7 +74,7 @@ export async function POST(req: Request): Promise<Response> {
       content:
         "You are an intelligent custom data assistant powered by Google Gemini. " +
           "Answer the user's questions based on their existing custom data. " +
-          "Use simple, conversational language that's easy to understand. " +
+          "Use simple, conversational language that's easy to understand, but always give detailed answers utilizing all relevant notes. " +
           "If there's no relevant information in the notes or if the notes are empty, " +
           "you can respond with your general knowledge.\n\n" +
           "Relevant data for this query:\n" +
