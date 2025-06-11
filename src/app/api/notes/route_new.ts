@@ -6,7 +6,7 @@ import {
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/db/prisma";
 import { notesIndex } from "@/lib/db/pinecone";
-import { getEmbeddings } from "@/lib/gemini-embeddings";
+import { getEmbeddings, getBatchEmbeddings } from "@/lib/gemini-embeddings";
 import {
   chunkText,
   createEmbeddingText,
@@ -30,10 +30,27 @@ export async function POST(req: Request) {
 
     if (!userId) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Create chunks from the note content
+    } // Create chunks from the note content
     const chunks = chunkText(content || "", DEFAULT_CHUNKING_OPTIONS);
+
+    // Generate embeddings for all chunks first (outside transaction)
+    console.log(`🔄 Generating embeddings for ${chunks.length} chunks...`);
+
+    // Create embedding texts for all chunks
+    const embeddingTexts = chunks.map((chunk) =>
+      createEmbeddingText(title, chunk.content)
+    );
+
+    // Use batch processing to respect rate limits
+    const embeddings = await getBatchEmbeddings(embeddingTexts, 5); // Process 5 at a time
+
+    // Combine chunks with their embeddings
+    const chunksWithEmbeddings = chunks.map((chunk, index) => ({
+      chunk,
+      embedding: embeddings[index],
+    }));
+
+    console.log(`✅ Generated all embeddings`);
 
     const note = await prisma.$transaction(async (tx) => {
       const note = await tx.note.create({
@@ -44,14 +61,12 @@ export async function POST(req: Request) {
         },
       });
 
-      // Create embeddings and store chunks
+      // Create chunks and prepare vector upserts
       const chunkOperations = [];
       const vectorUpserts = [];
 
-      for (const chunk of chunks) {
+      for (const { chunk, embedding } of chunksWithEmbeddings) {
         const vectorId = `${note.id}_chunk_${chunk.chunkIndex}`;
-        const embeddingText = createEmbeddingText(title, chunk.content);
-        const embedding = await getEmbeddings(embeddingText);
 
         // Create chunk in database
         chunkOperations.push(
@@ -122,10 +137,27 @@ export async function PUT(req: Request) {
 
     if (!userId || userId !== note.userId) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Create chunks from the updated content
+    } // Create chunks from the updated content
     const chunks = chunkText(content || "", DEFAULT_CHUNKING_OPTIONS);
+
+    // Generate embeddings for all chunks first (outside transaction)
+    console.log(`🔄 Generating embeddings for ${chunks.length} chunks...`);
+
+    // Create embedding texts for all chunks
+    const embeddingTexts = chunks.map((chunk) =>
+      createEmbeddingText(title, chunk.content)
+    );
+
+    // Use batch processing to respect rate limits
+    const embeddings = await getBatchEmbeddings(embeddingTexts, 5); // Process 5 at a time
+
+    // Combine chunks with their embeddings
+    const chunksWithEmbeddings = chunks.map((chunk, index) => ({
+      chunk,
+      embedding: embeddings[index],
+    }));
+
+    console.log(`✅ Generated all embeddings`);
 
     const updatedNote = await prisma.$transaction(async (tx) => {
       const updatedNote = await tx.note.update({
@@ -156,10 +188,8 @@ export async function PUT(req: Request) {
       const chunkOperations = [];
       const vectorUpserts = [];
 
-      for (const chunk of chunks) {
+      for (const { chunk, embedding } of chunksWithEmbeddings) {
         const vectorId = `${id}_chunk_${chunk.chunkIndex}`;
-        const embeddingText = createEmbeddingText(title, chunk.content);
-        const embedding = await getEmbeddings(embeddingText);
 
         // Create chunk in database
         chunkOperations.push(

@@ -6,7 +6,7 @@ import {
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/db/prisma";
 import { notesIndex } from "@/lib/db/pinecone";
-import { getEmbeddings } from "@/lib/gemini-embeddings";
+import { getEmbeddings, getBatchEmbeddings } from "@/lib/gemini-embeddings";
 import {
   chunkText,
   createEmbeddingText,
@@ -44,17 +44,23 @@ export async function POST(req: Request) {
       );
     } // Create chunks from the note content
     const chunks = chunkText(content || "", DEFAULT_CHUNKING_OPTIONS);
-    console.log(`📝 Created ${chunks.length} chunks`);
-
-    // Generate embeddings for all chunks first (outside transaction)
+    console.log(`📝 Created ${chunks.length} chunks`); // Generate embeddings for all chunks first (outside transaction)
     console.log(`🔄 Generating embeddings for ${chunks.length} chunks...`);
-    const embeddingPromises = chunks.map(async (chunk) => {
-      const embeddingText = createEmbeddingText(title, chunk.content);
-      const embedding = await getEmbeddings(embeddingText);
-      return { chunk, embedding };
-    });
 
-    const chunksWithEmbeddings = await Promise.all(embeddingPromises);
+    // Create embedding texts for all chunks
+    const embeddingTexts = chunks.map((chunk) =>
+      createEmbeddingText(title, chunk.content)
+    );
+
+    // Use batch processing to respect rate limits
+    const embeddings = await getBatchEmbeddings(embeddingTexts, 5); // Process 5 at a time
+
+    // Combine chunks with their embeddings
+    const chunksWithEmbeddings = chunks.map((chunk, index) => ({
+      chunk,
+      embedding: embeddings[index],
+    }));
+
     console.log(`✅ Generated all embeddings`);
 
     // Now perform database operations in transaction
@@ -186,13 +192,23 @@ export async function PUT(req: Request) {
     const chunks = chunkText(content || "", DEFAULT_CHUNKING_OPTIONS);
 
     // Generate embeddings for all chunks first (outside transaction)
-    const embeddingPromises = chunks.map(async (chunk) => {
-      const embeddingText = createEmbeddingText(title, chunk.content);
-      const embedding = await getEmbeddings(embeddingText);
-      return { chunk, embedding };
-    });
+    console.log(`🔄 Generating embeddings for ${chunks.length} chunks...`);
 
-    const chunksWithEmbeddings = await Promise.all(embeddingPromises);
+    // Create embedding texts for all chunks
+    const embeddingTexts = chunks.map((chunk) =>
+      createEmbeddingText(title, chunk.content)
+    );
+
+    // Use batch processing to respect rate limits
+    const embeddings = await getBatchEmbeddings(embeddingTexts, 5); // Process 5 at a time
+
+    // Combine chunks with their embeddings
+    const chunksWithEmbeddings = chunks.map((chunk, index) => ({
+      chunk,
+      embedding: embeddings[index],
+    }));
+
+    console.log(`✅ Generated all embeddings`);
 
     const updatedNote = await prisma.$transaction(async (tx) => {
       const updatedNote = await tx.note.update({
