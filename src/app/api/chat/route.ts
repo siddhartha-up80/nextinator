@@ -6,7 +6,7 @@ import { google } from "@ai-sdk/google";
 import { generateText, streamText } from "ai";
 
 // const model = google("gemini-1.5-pro-latest");
-const model = google("gemini-2.0-flash-001");
+const model = google("gemini-2.5-pro-preview-06-05");
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
