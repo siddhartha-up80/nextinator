@@ -5,7 +5,8 @@ import prisma from "@/lib/db/prisma";
 import { google } from "@ai-sdk/google";
 import { generateText, streamText } from "ai";
 
-const model = google("gemini-1.5-pro-latest");
+// const model = google("gemini-1.5-pro-latest");
+const model = google("gemini-2.0-flash-001");
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -23,8 +24,8 @@ export async function POST(req: Request): Promise<Response> {
 
     console.log("💬 Processing", messages.length, "messages");
 
-    // Get the last 6 messages for context
-    const messageTruncated = messages.slice(-6);
+    // Get the last 4 messages for context
+    const messageTruncated = messages.slice(-4);
 
     // Generate embeddings for vector search
     const messageContent = messageTruncated
@@ -44,7 +45,7 @@ export async function POST(req: Request): Promise<Response> {
     console.log("💬 Searching relevant notes..."); // Search for relevant notes using embeddings
     const vectorQueryResponse = await notesIndex.query({
       vector: embedding,
-      topK: 20,
+      topK: 40,
       filter: { userId },
       includeMetadata: true, // Make sure we get the metadata with content
     });
@@ -98,7 +99,7 @@ export async function POST(req: Request): Promise<Response> {
       model,
       messages: [systemMessage, ...messageTruncated],
       temperature: 0.7,
-      maxTokens: 2048,
+      maxTokens: 4096,
     });
 
     // Return the streaming response using toDataStreamResponse
