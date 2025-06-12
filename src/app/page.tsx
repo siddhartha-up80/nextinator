@@ -1,6 +1,6 @@
 import Footer from "@/components/main/footer";
 import Homenav from "@/components/main/homenav";
-import ParticlesComponent from "@/components/main/particles";
+// import ParticlesComponent from "@/components/main/particles";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
