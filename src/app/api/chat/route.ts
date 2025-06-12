@@ -5,8 +5,8 @@ import prisma from "@/lib/db/prisma";
 import { google } from "@ai-sdk/google";
 import { generateText, streamText } from "ai";
 
-// const model = google("gemini-1.5-pro-latest");
-const model = google("gemini-2.5-pro-preview-06-05");
+const model = google("gemini-1.5-pro-latest");
+// const model = google("gemini-2.5-pro-preview-06-05");
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
