@@ -67,66 +67,69 @@ export async function POST(req: Request) {
     console.log(`✅ Generated all embeddings`);
 
     // Now perform database operations in transaction
-    const note = await prisma.$transaction(async (tx) => {
-      const note = await tx.note.create({
-        data: {
-          title,
-          content,
-          userId,
-        },
-      });
+    const note = await prisma.$transaction(
+      async (tx) => {
+        const note = await tx.note.create({
+          data: {
+            title,
+            content,
+            userId,
+          },
+        });
 
-      console.log(`📝 Created note with ID: ${note.id}`);
+        console.log(`📝 Created note with ID: ${note.id}`);
 
-      // Create chunks and prepare vector upserts
-      const chunkOperations = [];
-      const vectorUpserts = [];
+        // Create chunks and prepare vector upserts
+        const chunkOperations = [];
+        const vectorUpserts = [];
 
-      for (const { chunk, embedding } of chunksWithEmbeddings) {
-        const vectorId = `${note.id}_chunk_${chunk.chunkIndex}`;
+        for (const { chunk, embedding } of chunksWithEmbeddings) {
+          const vectorId = `${note.id}_chunk_${chunk.chunkIndex}`;
 
-        // Create chunk in database
-        chunkOperations.push(
-          tx.noteChunk.create({
-            data: {
+          // Create chunk in database
+          chunkOperations.push(
+            tx.noteChunk.create({
+              data: {
+                noteId: note.id,
+                content: chunk.content,
+                chunkIndex: chunk.chunkIndex,
+                startIndex: chunk.startIndex,
+                endIndex: chunk.endIndex,
+                vectorId,
+              },
+            })
+          );
+
+          // Prepare vector upsert
+          vectorUpserts.push({
+            id: vectorId,
+            values: embedding,
+            metadata: {
+              userId,
               noteId: note.id,
-              content: chunk.content,
+              noteTitle: title,
+              content: chunk.content, // Include the actual content
               chunkIndex: chunk.chunkIndex,
               startIndex: chunk.startIndex,
               endIndex: chunk.endIndex,
-              vectorId,
+              contentLength: chunk.content.length,
+              sourceType: sourceType, // Use the sourceType from request
+              ...(fileName && { fileName }), // Include fileName if provided
             },
-          })
-        );
+          });
+        }
 
-        // Prepare vector upsert
-        vectorUpserts.push({
-          id: vectorId,
-          values: embedding,
-          metadata: {
-            userId,
-            noteId: note.id,
-            noteTitle: title,
-            content: chunk.content, // Include the actual content
-            chunkIndex: chunk.chunkIndex,
-            startIndex: chunk.startIndex,
-            endIndex: chunk.endIndex,
-            contentLength: chunk.content.length,
-            sourceType: sourceType, // Use the sourceType from request
-            ...(fileName && { fileName }), // Include fileName if provided
-          },
-        });
-      }
+        // Execute chunk operations
+        await Promise.all(chunkOperations);
 
-      // Execute chunk operations
-      await Promise.all(chunkOperations);
+        // Upsert to vector database (outside transaction to avoid timeout)
+        // Store vectorUpserts to execute after transaction
+        (note as any).vectorUpserts = vectorUpserts;
 
-      // Upsert to vector database (outside transaction to avoid timeout)
-      // Store vectorUpserts to execute after transaction
-      (note as any).vectorUpserts = vectorUpserts;
-
-      return note;
-    });
+        return note;
+      },
+      { timeout: 15000 } // Example: Increase timeout to 15 seconds
+    );
 
     // Execute vector upserts after successful database transaction
     console.log(
@@ -213,73 +216,76 @@ export async function PUT(req: Request) {
 
     console.log(`✅ Generated all embeddings`);
 
-    const updatedNote = await prisma.$transaction(async (tx) => {
-      const updatedNote = await tx.note.update({
-        where: { id },
-        data: {
-          title,
-          content,
-        },
-      });
+    const updatedNote = await prisma.$transaction(
+      async (tx) => {
+        const updatedNote = await tx.note.update({
+          where: { id },
+          data: {
+            title,
+            content,
+          },
+        });
 
-      // Delete existing chunks and vectors
-      const existingChunks = await tx.noteChunk.findMany({
-        where: { noteId: id },
-      });
+        // Delete existing chunks and vectors
+        const existingChunks = await tx.noteChunk.findMany({
+          where: { noteId: id },
+        });
 
-      // Delete chunks from database
-      await tx.noteChunk.deleteMany({
-        where: { noteId: id },
-      });
+        // Delete chunks from database
+        await tx.noteChunk.deleteMany({
+          where: { noteId: id },
+        });
 
-      // Create new chunks
-      const chunkOperations = [];
-      const vectorUpserts = [];
+        // Create new chunks
+        const chunkOperations = [];
+        const vectorUpserts = [];
 
-      for (const { chunk, embedding } of chunksWithEmbeddings) {
-        const vectorId = `${id}_chunk_${chunk.chunkIndex}`;
+        for (const { chunk, embedding } of chunksWithEmbeddings) {
+          const vectorId = `${id}_chunk_${chunk.chunkIndex}`;
 
-        // Create chunk in database
-        chunkOperations.push(
-          tx.noteChunk.create({
-            data: {
+          // Create chunk in database
+          chunkOperations.push(
+            tx.noteChunk.create({
+              data: {
+                noteId: id,
+                content: chunk.content,
+                chunkIndex: chunk.chunkIndex,
+                startIndex: chunk.startIndex,
+                endIndex: chunk.endIndex,
+                vectorId,
+              },
+            })
+          );
+
+          // Prepare vector upsert
+          vectorUpserts.push({
+            id: vectorId,
+            values: embedding,
+            metadata: {
+              userId,
               noteId: id,
-              content: chunk.content,
+              noteTitle: title,
+              content: chunk.content, // Include the actual content
               chunkIndex: chunk.chunkIndex,
               startIndex: chunk.startIndex,
               endIndex: chunk.endIndex,
-              vectorId,
+              contentLength: chunk.content.length,
+              sourceType: "text", // Mark as text source
             },
-          })
-        );
+          });
+        }
 
-        // Prepare vector upsert
-        vectorUpserts.push({
-          id: vectorId,
-          values: embedding,
-          metadata: {
-            userId,
-            noteId: id,
-            noteTitle: title,
-            content: chunk.content, // Include the actual content
-            chunkIndex: chunk.chunkIndex,
-            startIndex: chunk.startIndex,
-            endIndex: chunk.endIndex,
-            contentLength: chunk.content.length,
-            sourceType: "text", // Mark as text source
-          },
-        });
-      }
+        // Execute chunk operations
+        await Promise.all(chunkOperations);
 
-      // Execute chunk operations
-      await Promise.all(chunkOperations);
+        // Store vector operations for execution after transaction
+        (updatedNote as any).existingChunks = existingChunks;
+        (updatedNote as any).vectorUpserts = vectorUpserts;
 
-      // Store vector operations for execution after transaction
-      (updatedNote as any).existingChunks = existingChunks;
-      (updatedNote as any).vectorUpserts = vectorUpserts;
-
-      return updatedNote;
-    });
+        return updatedNote;
+      },
+      { timeout: 15000 } // Example: Increase timeout to 15 seconds
+    );
 
     // Delete from vector database after transaction
     if ((updatedNote as any).existingChunks.length > 0) {
