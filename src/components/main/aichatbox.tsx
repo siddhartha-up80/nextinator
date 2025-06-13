@@ -331,6 +331,15 @@ function ChatMessage({
             </Button>
           </div>
         )}
+
+        {isAiMessage && !isLoading && (
+          <div className="text-sm text-yellow-600 flex items-center gap-1 mt-1">
+            <XCircle size={16} className="inline" />
+            Tips: Delete <Trash size={12} />
+            current chat before starting a new question which is not related to
+            the current queries.
+          </div>
+        )}
       </div>
 
       {!isAiMessage && user?.imageUrl && (
