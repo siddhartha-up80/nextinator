@@ -1,6 +1,6 @@
 "use client";
 
-import { Note as NoteModel } from "@/generated/prisma";
+import { Note as NoteModel } from "@prisma/client";
 import {
   Card,
   CardContent,
