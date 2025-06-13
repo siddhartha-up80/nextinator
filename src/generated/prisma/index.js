@@ -144,6 +144,10 @@ const config = {
         "fromEnvVar": null,
         "value": "windows",
         "native": true
+      },
+      {
+        "fromEnvVar": null,
+        "value": "rhel-openssl-3.0.x"
       }
     ],
     "previewFeatures": [],
@@ -169,8 +173,8 @@ const config = {
       }
     }
   },
-  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"mongodb\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel Note {\n  id        String   @id @default(auto()) @map(\"_id\") @db.ObjectId\n  title     String\n  content   String?\n  userId    String\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  // Relationship to note chunks\n  chunks NoteChunk[]\n\n  @@map(\"notes\")\n}\n\nmodel NoteChunk {\n  id         String   @id @default(auto()) @map(\"_id\") @db.ObjectId\n  noteId     String   @db.ObjectId\n  content    String\n  chunkIndex Int\n  startIndex Int\n  endIndex   Int\n  vectorId   String   @unique // ID used in the vector database\n  createdAt  DateTime @default(now())\n  updatedAt  DateTime @updatedAt\n\n  // Relationship to the parent note\n  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)\n\n  @@unique([noteId, chunkIndex])\n  @@map(\"note_chunks\")\n}\n",
-  "inlineSchemaHash": "628fae0e9d70ff5d147f664e26b6bbb01ab9fe4c3eae95cd5eadf1f9f0737343",
+  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider      = \"prisma-client-js\"\n  output        = \"../src/generated/prisma\"\n  binaryTargets = [\"native\", \"rhel-openssl-3.0.x\"]\n}\n\ndatasource db {\n  provider = \"mongodb\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel Note {\n  id        String   @id @default(auto()) @map(\"_id\") @db.ObjectId\n  title     String\n  content   String?\n  userId    String\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  // Relationship to note chunks\n  chunks NoteChunk[]\n\n  @@map(\"notes\")\n}\n\nmodel NoteChunk {\n  id         String   @id @default(auto()) @map(\"_id\") @db.ObjectId\n  noteId     String   @db.ObjectId\n  content    String\n  chunkIndex Int\n  startIndex Int\n  endIndex   Int\n  vectorId   String   @unique // ID used in the vector database\n  createdAt  DateTime @default(now())\n  updatedAt  DateTime @updatedAt\n\n  // Relationship to the parent note\n  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)\n\n  @@unique([noteId, chunkIndex])\n  @@map(\"note_chunks\")\n}\n",
+  "inlineSchemaHash": "9eb783370c890c2d80501677a4e3d13efefc3dfa0e4a3d0994b8d353b39e2c4f",
   "copyEngine": true
 }
 
@@ -211,6 +215,10 @@ Object.assign(exports, Prisma)
 // file annotations for bundling tools to include these files
 path.join(__dirname, "query_engine-windows.dll.node");
 path.join(process.cwd(), "src/generated/prisma/query_engine-windows.dll.node")
+
+// file annotations for bundling tools to include these files
+path.join(__dirname, "libquery_engine-rhel-openssl-3.0.x.so.node");
+path.join(process.cwd(), "src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node")
 // file annotations for bundling tools to include these files
 path.join(__dirname, "schema.prisma");
 path.join(process.cwd(), "src/generated/prisma/schema.prisma")
