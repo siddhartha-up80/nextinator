@@ -266,7 +266,29 @@ function ChatMessage({
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000); // Reset the copied state after 2 seconds
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleContinue = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // First, update the input value to "Continue"
+    handleInputChange({ target: { value: "Continue" } });
+
+    // Then submit the form after a short delay to ensure the input is updated
+    setTimeout(() => {
+      const syntheticEvent = {
+        preventDefault: () => {},
+        currentTarget: {
+          reset: () => {},
+        },
+      } as React.FormEvent<HTMLFormElement>;
+
+      handleSubmit(syntheticEvent);
+    }, 50); // Small delay to ensure state update
+
+    handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>);
   };
 
   return (
@@ -301,12 +323,9 @@ function ChatMessage({
             </Button>
             <Button
               variant={"secondary"}
+              type="button"
               size={"sm"}
-              onClick={async () => {
-                await handleInputChange({ target: { value: "Continue" } });
-
-                document.getElementById("sendbutton")?.click();
-              }}
+              onClick={handleContinue}
             >
               Continue Response <StepForward size={18} className="ml-2" />
             </Button>

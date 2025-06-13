@@ -10,12 +10,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model Note {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   title     String
   content   String?
   userId    String
@@ -29,8 +29,8 @@ model Note {
 }
 
 model NoteChunk {
-  id         String   @id @default(cuid())
-  noteId     String
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  noteId     String   @db.ObjectId
   content    String
   chunkIndex Int
   startIndex Int

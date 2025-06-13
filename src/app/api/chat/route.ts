@@ -99,7 +99,7 @@ export async function POST(req: Request): Promise<Response> {
       model,
       messages: [systemMessage, ...messageTruncated],
       temperature: 0.7,
-      maxTokens: 4096,
+      maxTokens: 8192,
     });
 
     // Return the streaming response using toDataStreamResponse

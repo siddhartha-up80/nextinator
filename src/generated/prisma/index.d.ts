@@ -81,53 +81,6 @@ export class PrismaClient<
   $use(cb: Prisma.Middleware): void
 
 /**
-   * Executes a prepared raw query and returns the number of affected rows.
-   * @example
-   * ```
-   * const result = await prisma.$executeRaw`UPDATE User SET cool = ${true} WHERE email = ${'user@email.com'};`
-   * ```
-   *
-   * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/raw-database-access).
-   */
-  $executeRaw<T = unknown>(query: TemplateStringsArray | Prisma.Sql, ...values: any[]): Prisma.PrismaPromise<number>;
-
-  /**
-   * Executes a raw query and returns the number of affected rows.
-   * Susceptible to SQL injections, see documentation.
-   * @example
-   * ```
-   * const result = await prisma.$executeRawUnsafe('UPDATE User SET cool = $1 WHERE email = $2 ;', true, 'user@email.com')
-   * ```
-   *
-   * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/raw-database-access).
-   */
-  $executeRawUnsafe<T = unknown>(query: string, ...values: any[]): Prisma.PrismaPromise<number>;
-
-  /**
-   * Performs a prepared raw query and returns the `SELECT` data.
-   * @example
-   * ```
-   * const result = await prisma.$queryRaw`SELECT * FROM User WHERE id = ${1} OR email = ${'user@email.com'};`
-   * ```
-   *
-   * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/raw-database-access).
-   */
-  $queryRaw<T = unknown>(query: TemplateStringsArray | Prisma.Sql, ...values: any[]): Prisma.PrismaPromise<T>;
-
-  /**
-   * Performs a raw query and returns the `SELECT` data.
-   * Susceptible to SQL injections, see documentation.
-   * @example
-   * ```
-   * const result = await prisma.$queryRawUnsafe('SELECT * FROM User WHERE id = $1 OR email = $2;', 1, 'user@email.com')
-   * ```
-   *
-   * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/raw-database-access).
-   */
-  $queryRawUnsafe<T = unknown>(query: string, ...values: any[]): Prisma.PrismaPromise<T>;
-
-
-  /**
    * Allows the running of a sequence of read/write operations that are guaranteed to either succeed or fail as a whole.
    * @example
    * ```
@@ -140,10 +93,24 @@ export class PrismaClient<
    * 
    * Read more in our [docs](https://www.prisma.io/docs/concepts/components/prisma-client/transactions).
    */
-  $transaction<P extends Prisma.PrismaPromise<any>[]>(arg: [...P], options?: { isolationLevel?: Prisma.TransactionIsolationLevel }): $Utils.JsPromise<runtime.Types.Utils.UnwrapTuple<P>>
+  $transaction<P extends Prisma.PrismaPromise<any>[]>(arg: [...P]): $Utils.JsPromise<runtime.Types.Utils.UnwrapTuple<P>>
 
-  $transaction<R>(fn: (prisma: Omit<PrismaClient, runtime.ITXClientDenyList>) => $Utils.JsPromise<R>, options?: { maxWait?: number, timeout?: number, isolationLevel?: Prisma.TransactionIsolationLevel }): $Utils.JsPromise<R>
+  $transaction<R>(fn: (prisma: Omit<PrismaClient, runtime.ITXClientDenyList>) => $Utils.JsPromise<R>, options?: { maxWait?: number, timeout?: number }): $Utils.JsPromise<R>
 
+  /**
+   * Executes a raw MongoDB command and returns the result of it.
+   * @example
+   * ```
+   * const user = await prisma.$runCommandRaw({
+   *   aggregate: 'User',
+   *   pipeline: [{ $match: { name: 'Bob' } }, { $project: { email: true, _id: false } }],
+   *   explain: false,
+   * })
+   * ```
+   * 
+   * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client/raw-database-access).
+   */
+  $runCommandRaw(command: Prisma.InputJsonObject): Prisma.PrismaPromise<Prisma.JsonObject>
 
   $extends: $Extensions.ExtendsHook<"extends", Prisma.TypeMapCb<ClientOptions>, ExtArgs, $Utils.Call<Prisma.TypeMapCb<ClientOptions>, {
     extArgs: ExtArgs
@@ -629,7 +596,7 @@ export namespace Prisma {
     }
     meta: {
       modelProps: "note" | "noteChunk"
-      txIsolationLevel: Prisma.TransactionIsolationLevel
+      txIsolationLevel: never
     }
     model: {
       Note: {
@@ -664,10 +631,6 @@ export namespace Prisma {
             args: Prisma.NoteCreateManyArgs<ExtArgs>
             result: BatchPayload
           }
-          createManyAndReturn: {
-            args: Prisma.NoteCreateManyAndReturnArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$NotePayload>[]
-          }
           delete: {
             args: Prisma.NoteDeleteArgs<ExtArgs>
             result: $Utils.PayloadToResult<Prisma.$NotePayload>
@@ -684,10 +647,6 @@ export namespace Prisma {
             args: Prisma.NoteUpdateManyArgs<ExtArgs>
             result: BatchPayload
           }
-          updateManyAndReturn: {
-            args: Prisma.NoteUpdateManyAndReturnArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$NotePayload>[]
-          }
           upsert: {
             args: Prisma.NoteUpsertArgs<ExtArgs>
             result: $Utils.PayloadToResult<Prisma.$NotePayload>
@@ -699,6 +658,14 @@ export namespace Prisma {
           groupBy: {
             args: Prisma.NoteGroupByArgs<ExtArgs>
             result: $Utils.Optional<NoteGroupByOutputType>[]
+          }
+          findRaw: {
+            args: Prisma.NoteFindRawArgs<ExtArgs>
+            result: JsonObject
+          }
+          aggregateRaw: {
+            args: Prisma.NoteAggregateRawArgs<ExtArgs>
+            result: JsonObject
           }
           count: {
             args: Prisma.NoteCountArgs<ExtArgs>
@@ -738,10 +705,6 @@ export namespace Prisma {
             args: Prisma.NoteChunkCreateManyArgs<ExtArgs>
             result: BatchPayload
           }
-          createManyAndReturn: {
-            args: Prisma.NoteChunkCreateManyAndReturnArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$NoteChunkPayload>[]
-          }
           delete: {
             args: Prisma.NoteChunkDeleteArgs<ExtArgs>
             result: $Utils.PayloadToResult<Prisma.$NoteChunkPayload>
@@ -758,10 +721,6 @@ export namespace Prisma {
             args: Prisma.NoteChunkUpdateManyArgs<ExtArgs>
             result: BatchPayload
           }
-          updateManyAndReturn: {
-            args: Prisma.NoteChunkUpdateManyAndReturnArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$NoteChunkPayload>[]
-          }
           upsert: {
             args: Prisma.NoteChunkUpsertArgs<ExtArgs>
             result: $Utils.PayloadToResult<Prisma.$NoteChunkPayload>
@@ -774,6 +733,14 @@ export namespace Prisma {
             args: Prisma.NoteChunkGroupByArgs<ExtArgs>
             result: $Utils.Optional<NoteChunkGroupByOutputType>[]
           }
+          findRaw: {
+            args: Prisma.NoteChunkFindRawArgs<ExtArgs>
+            result: JsonObject
+          }
+          aggregateRaw: {
+            args: Prisma.NoteChunkAggregateRawArgs<ExtArgs>
+            result: JsonObject
+          }
           count: {
             args: Prisma.NoteChunkCountArgs<ExtArgs>
             result: $Utils.Optional<NoteChunkCountAggregateOutputType> | number
@@ -785,21 +752,9 @@ export namespace Prisma {
     other: {
       payload: any
       operations: {
-        $executeRaw: {
-          args: [query: TemplateStringsArray | Prisma.Sql, ...values: any[]],
-          result: any
-        }
-        $executeRawUnsafe: {
-          args: [query: string, ...values: any[]],
-          result: any
-        }
-        $queryRaw: {
-          args: [query: TemplateStringsArray | Prisma.Sql, ...values: any[]],
-          result: any
-        }
-        $queryRawUnsafe: {
-          args: [query: string, ...values: any[]],
-          result: any
+        $runCommandRaw: {
+          args: Prisma.InputJsonObject,
+          result: Prisma.JsonObject
         }
       }
     }
@@ -845,7 +800,6 @@ export namespace Prisma {
     transactionOptions?: {
       maxWait?: number
       timeout?: number
-      isolationLevel?: Prisma.TransactionIsolationLevel
     }
     /**
      * Global configuration for omitting model fields by default.
@@ -1166,23 +1120,7 @@ export namespace Prisma {
     _count?: boolean | NoteCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["note"]>
 
-  export type NoteSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    title?: boolean
-    content?: boolean
-    userId?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-  }, ExtArgs["result"]["note"]>
 
-  export type NoteSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    title?: boolean
-    content?: boolean
-    userId?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-  }, ExtArgs["result"]["note"]>
 
   export type NoteSelectScalar = {
     id?: boolean
@@ -1198,8 +1136,6 @@ export namespace Prisma {
     chunks?: boolean | Note$chunksArgs<ExtArgs>
     _count?: boolean | NoteCountOutputTypeDefaultArgs<ExtArgs>
   }
-  export type NoteIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
-  export type NoteIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
 
   export type $NotePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Note"
@@ -1331,30 +1267,6 @@ export namespace Prisma {
     createMany<T extends NoteCreateManyArgs>(args?: SelectSubset<T, NoteCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
 
     /**
-     * Create many Notes and returns the data saved in the database.
-     * @param {NoteCreateManyAndReturnArgs} args - Arguments to create many Notes.
-     * @example
-     * // Create many Notes
-     * const note = await prisma.note.createManyAndReturn({
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * 
-     * // Create many Notes and only return the `id`
-     * const noteWithIdOnly = await prisma.note.createManyAndReturn({
-     *   select: { id: true },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * 
-     */
-    createManyAndReturn<T extends NoteCreateManyAndReturnArgs>(args?: SelectSubset<T, NoteCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$NotePayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
-
-    /**
      * Delete a Note.
      * @param {NoteDeleteArgs} args - Arguments to delete one Note.
      * @example
@@ -1419,36 +1331,6 @@ export namespace Prisma {
     updateMany<T extends NoteUpdateManyArgs>(args: SelectSubset<T, NoteUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
 
     /**
-     * Update zero or more Notes and returns the data updated in the database.
-     * @param {NoteUpdateManyAndReturnArgs} args - Arguments to update many Notes.
-     * @example
-     * // Update many Notes
-     * const note = await prisma.note.updateManyAndReturn({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * 
-     * // Update zero or more Notes and only return the `id`
-     * const noteWithIdOnly = await prisma.note.updateManyAndReturn({
-     *   select: { id: true },
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * 
-     */
-    updateManyAndReturn<T extends NoteUpdateManyAndReturnArgs>(args: SelectSubset<T, NoteUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$NotePayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
-
-    /**
      * Create or update one Note.
      * @param {NoteUpsertArgs} args - Arguments to update or create a Note.
      * @example
@@ -1466,6 +1348,29 @@ export namespace Prisma {
      * })
      */
     upsert<T extends NoteUpsertArgs>(args: SelectSubset<T, NoteUpsertArgs<ExtArgs>>): Prisma__NoteClient<$Result.GetResult<Prisma.$NotePayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more Notes that matches the filter.
+     * @param {NoteFindRawArgs} args - Select which filters you would like to apply.
+     * @example
+     * const note = await prisma.note.findRaw({
+     *   filter: { age: { $gt: 25 } }
+     * })
+     */
+    findRaw(args?: NoteFindRawArgs): Prisma.PrismaPromise<JsonObject>
+
+    /**
+     * Perform aggregation operations on a Note.
+     * @param {NoteAggregateRawArgs} args - Select which aggregations you would like to apply.
+     * @example
+     * const note = await prisma.note.aggregateRaw({
+     *   pipeline: [
+     *     { $match: { status: "registered" } },
+     *     { $group: { _id: "$country", total: { $sum: 1 } } }
+     *   ]
+     * })
+     */
+    aggregateRaw(args?: NoteAggregateRawArgs): Prisma.PrismaPromise<JsonObject>
 
 
     /**
@@ -1872,26 +1777,6 @@ export namespace Prisma {
      * The data used to create many Notes.
      */
     data: NoteCreateManyInput | NoteCreateManyInput[]
-    skipDuplicates?: boolean
-  }
-
-  /**
-   * Note createManyAndReturn
-   */
-  export type NoteCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Note
-     */
-    select?: NoteSelectCreateManyAndReturn<ExtArgs> | null
-    /**
-     * Omit specific fields from the Note
-     */
-    omit?: NoteOmit<ExtArgs> | null
-    /**
-     * The data used to create many Notes.
-     */
-    data: NoteCreateManyInput | NoteCreateManyInput[]
-    skipDuplicates?: boolean
   }
 
   /**
@@ -1924,32 +1809,6 @@ export namespace Prisma {
    * Note updateMany
    */
   export type NoteUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to update Notes.
-     */
-    data: XOR<NoteUpdateManyMutationInput, NoteUncheckedUpdateManyInput>
-    /**
-     * Filter which Notes to update
-     */
-    where?: NoteWhereInput
-    /**
-     * Limit how many Notes to update.
-     */
-    limit?: number
-  }
-
-  /**
-   * Note updateManyAndReturn
-   */
-  export type NoteUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Note
-     */
-    select?: NoteSelectUpdateManyAndReturn<ExtArgs> | null
-    /**
-     * Omit specific fields from the Note
-     */
-    omit?: NoteOmit<ExtArgs> | null
     /**
      * The data used to update Notes.
      */
@@ -2028,6 +1887,34 @@ export namespace Prisma {
      * Limit how many Notes to delete.
      */
     limit?: number
+  }
+
+  /**
+   * Note findRaw
+   */
+  export type NoteFindRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The query predicate filter. If unspecified, then all documents in the collection will match the predicate. ${@link https://docs.mongodb.com/manual/reference/operator/query MongoDB Docs}.
+     */
+    filter?: InputJsonValue
+    /**
+     * Additional options to pass to the `find` command ${@link https://docs.mongodb.com/manual/reference/command/find/#command-fields MongoDB Docs}.
+     */
+    options?: InputJsonValue
+  }
+
+  /**
+   * Note aggregateRaw
+   */
+  export type NoteAggregateRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * An array of aggregation stages to process and transform the document stream via the aggregation pipeline. ${@link https://docs.mongodb.com/manual/reference/operator/aggregation-pipeline MongoDB Docs}.
+     */
+    pipeline?: InputJsonValue[]
+    /**
+     * Additional options to pass to the `aggregate` command ${@link https://docs.mongodb.com/manual/reference/command/aggregate/#command-fields MongoDB Docs}.
+     */
+    options?: InputJsonValue
   }
 
   /**
@@ -2314,31 +2201,7 @@ export namespace Prisma {
     note?: boolean | NoteDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["noteChunk"]>
 
-  export type NoteChunkSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    noteId?: boolean
-    content?: boolean
-    chunkIndex?: boolean
-    startIndex?: boolean
-    endIndex?: boolean
-    vectorId?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-    note?: boolean | NoteDefaultArgs<ExtArgs>
-  }, ExtArgs["result"]["noteChunk"]>
 
-  export type NoteChunkSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    noteId?: boolean
-    content?: boolean
-    chunkIndex?: boolean
-    startIndex?: boolean
-    endIndex?: boolean
-    vectorId?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-    note?: boolean | NoteDefaultArgs<ExtArgs>
-  }, ExtArgs["result"]["noteChunk"]>
 
   export type NoteChunkSelectScalar = {
     id?: boolean
@@ -2354,12 +2217,6 @@ export namespace Prisma {
 
   export type NoteChunkOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "noteId" | "content" | "chunkIndex" | "startIndex" | "endIndex" | "vectorId" | "createdAt" | "updatedAt", ExtArgs["result"]["noteChunk"]>
   export type NoteChunkInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    note?: boolean | NoteDefaultArgs<ExtArgs>
-  }
-  export type NoteChunkIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    note?: boolean | NoteDefaultArgs<ExtArgs>
-  }
-  export type NoteChunkIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     note?: boolean | NoteDefaultArgs<ExtArgs>
   }
 
@@ -2496,30 +2353,6 @@ export namespace Prisma {
     createMany<T extends NoteChunkCreateManyArgs>(args?: SelectSubset<T, NoteChunkCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
 
     /**
-     * Create many NoteChunks and returns the data saved in the database.
-     * @param {NoteChunkCreateManyAndReturnArgs} args - Arguments to create many NoteChunks.
-     * @example
-     * // Create many NoteChunks
-     * const noteChunk = await prisma.noteChunk.createManyAndReturn({
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * 
-     * // Create many NoteChunks and only return the `id`
-     * const noteChunkWithIdOnly = await prisma.noteChunk.createManyAndReturn({
-     *   select: { id: true },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * 
-     */
-    createManyAndReturn<T extends NoteChunkCreateManyAndReturnArgs>(args?: SelectSubset<T, NoteChunkCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$NoteChunkPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
-
-    /**
      * Delete a NoteChunk.
      * @param {NoteChunkDeleteArgs} args - Arguments to delete one NoteChunk.
      * @example
@@ -2584,36 +2417,6 @@ export namespace Prisma {
     updateMany<T extends NoteChunkUpdateManyArgs>(args: SelectSubset<T, NoteChunkUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
 
     /**
-     * Update zero or more NoteChunks and returns the data updated in the database.
-     * @param {NoteChunkUpdateManyAndReturnArgs} args - Arguments to update many NoteChunks.
-     * @example
-     * // Update many NoteChunks
-     * const noteChunk = await prisma.noteChunk.updateManyAndReturn({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * 
-     * // Update zero or more NoteChunks and only return the `id`
-     * const noteChunkWithIdOnly = await prisma.noteChunk.updateManyAndReturn({
-     *   select: { id: true },
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * 
-     */
-    updateManyAndReturn<T extends NoteChunkUpdateManyAndReturnArgs>(args: SelectSubset<T, NoteChunkUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$NoteChunkPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
-
-    /**
      * Create or update one NoteChunk.
      * @param {NoteChunkUpsertArgs} args - Arguments to update or create a NoteChunk.
      * @example
@@ -2631,6 +2434,29 @@ export namespace Prisma {
      * })
      */
     upsert<T extends NoteChunkUpsertArgs>(args: SelectSubset<T, NoteChunkUpsertArgs<ExtArgs>>): Prisma__NoteChunkClient<$Result.GetResult<Prisma.$NoteChunkPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more NoteChunks that matches the filter.
+     * @param {NoteChunkFindRawArgs} args - Select which filters you would like to apply.
+     * @example
+     * const noteChunk = await prisma.noteChunk.findRaw({
+     *   filter: { age: { $gt: 25 } }
+     * })
+     */
+    findRaw(args?: NoteChunkFindRawArgs): Prisma.PrismaPromise<JsonObject>
+
+    /**
+     * Perform aggregation operations on a NoteChunk.
+     * @param {NoteChunkAggregateRawArgs} args - Select which aggregations you would like to apply.
+     * @example
+     * const noteChunk = await prisma.noteChunk.aggregateRaw({
+     *   pipeline: [
+     *     { $match: { status: "registered" } },
+     *     { $group: { _id: "$country", total: { $sum: 1 } } }
+     *   ]
+     * })
+     */
+    aggregateRaw(args?: NoteChunkAggregateRawArgs): Prisma.PrismaPromise<JsonObject>
 
 
     /**
@@ -3040,30 +2866,6 @@ export namespace Prisma {
      * The data used to create many NoteChunks.
      */
     data: NoteChunkCreateManyInput | NoteChunkCreateManyInput[]
-    skipDuplicates?: boolean
-  }
-
-  /**
-   * NoteChunk createManyAndReturn
-   */
-  export type NoteChunkCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the NoteChunk
-     */
-    select?: NoteChunkSelectCreateManyAndReturn<ExtArgs> | null
-    /**
-     * Omit specific fields from the NoteChunk
-     */
-    omit?: NoteChunkOmit<ExtArgs> | null
-    /**
-     * The data used to create many NoteChunks.
-     */
-    data: NoteChunkCreateManyInput | NoteChunkCreateManyInput[]
-    skipDuplicates?: boolean
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: NoteChunkIncludeCreateManyAndReturn<ExtArgs> | null
   }
 
   /**
@@ -3108,36 +2910,6 @@ export namespace Prisma {
      * Limit how many NoteChunks to update.
      */
     limit?: number
-  }
-
-  /**
-   * NoteChunk updateManyAndReturn
-   */
-  export type NoteChunkUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the NoteChunk
-     */
-    select?: NoteChunkSelectUpdateManyAndReturn<ExtArgs> | null
-    /**
-     * Omit specific fields from the NoteChunk
-     */
-    omit?: NoteChunkOmit<ExtArgs> | null
-    /**
-     * The data used to update NoteChunks.
-     */
-    data: XOR<NoteChunkUpdateManyMutationInput, NoteChunkUncheckedUpdateManyInput>
-    /**
-     * Filter which NoteChunks to update
-     */
-    where?: NoteChunkWhereInput
-    /**
-     * Limit how many NoteChunks to update.
-     */
-    limit?: number
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: NoteChunkIncludeUpdateManyAndReturn<ExtArgs> | null
   }
 
   /**
@@ -3207,6 +2979,34 @@ export namespace Prisma {
   }
 
   /**
+   * NoteChunk findRaw
+   */
+  export type NoteChunkFindRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The query predicate filter. If unspecified, then all documents in the collection will match the predicate. ${@link https://docs.mongodb.com/manual/reference/operator/query MongoDB Docs}.
+     */
+    filter?: InputJsonValue
+    /**
+     * Additional options to pass to the `find` command ${@link https://docs.mongodb.com/manual/reference/command/find/#command-fields MongoDB Docs}.
+     */
+    options?: InputJsonValue
+  }
+
+  /**
+   * NoteChunk aggregateRaw
+   */
+  export type NoteChunkAggregateRawArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * An array of aggregation stages to process and transform the document stream via the aggregation pipeline. ${@link https://docs.mongodb.com/manual/reference/operator/aggregation-pipeline MongoDB Docs}.
+     */
+    pipeline?: InputJsonValue[]
+    /**
+     * Additional options to pass to the `aggregate` command ${@link https://docs.mongodb.com/manual/reference/command/aggregate/#command-fields MongoDB Docs}.
+     */
+    options?: InputJsonValue
+  }
+
+  /**
    * NoteChunk without action
    */
   export type NoteChunkDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -3228,16 +3028,6 @@ export namespace Prisma {
   /**
    * Enums
    */
-
-  export const TransactionIsolationLevel: {
-    ReadUncommitted: 'ReadUncommitted',
-    ReadCommitted: 'ReadCommitted',
-    RepeatableRead: 'RepeatableRead',
-    Serializable: 'Serializable'
-  };
-
-  export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
-
 
   export const NoteScalarFieldEnum: {
     id: 'id',
@@ -3280,14 +3070,6 @@ export namespace Prisma {
   };
 
   export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
-
-
-  export const NullsOrder: {
-    first: 'first',
-    last: 'last'
-  };
-
-  export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
 
 
   /**
@@ -3370,7 +3152,7 @@ export namespace Prisma {
   export type NoteOrderByWithRelationInput = {
     id?: SortOrder
     title?: SortOrder
-    content?: SortOrderInput | SortOrder
+    content?: SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -3393,7 +3175,7 @@ export namespace Prisma {
   export type NoteOrderByWithAggregationInput = {
     id?: SortOrder
     title?: SortOrder
-    content?: SortOrderInput | SortOrder
+    content?: SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -3513,7 +3295,6 @@ export namespace Prisma {
   }
 
   export type NoteUpdateInput = {
-    id?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     content?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
@@ -3523,7 +3304,6 @@ export namespace Prisma {
   }
 
   export type NoteUncheckedUpdateInput = {
-    id?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     content?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
@@ -3542,7 +3322,6 @@ export namespace Prisma {
   }
 
   export type NoteUpdateManyMutationInput = {
-    id?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     content?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
@@ -3551,7 +3330,6 @@ export namespace Prisma {
   }
 
   export type NoteUncheckedUpdateManyInput = {
-    id?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     content?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
@@ -3584,7 +3362,6 @@ export namespace Prisma {
   }
 
   export type NoteChunkUpdateInput = {
-    id?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     chunkIndex?: IntFieldUpdateOperationsInput | number
     startIndex?: IntFieldUpdateOperationsInput | number
@@ -3596,7 +3373,6 @@ export namespace Prisma {
   }
 
   export type NoteChunkUncheckedUpdateInput = {
-    id?: StringFieldUpdateOperationsInput | string
     noteId?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     chunkIndex?: IntFieldUpdateOperationsInput | number
@@ -3620,7 +3396,6 @@ export namespace Prisma {
   }
 
   export type NoteChunkUpdateManyMutationInput = {
-    id?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     chunkIndex?: IntFieldUpdateOperationsInput | number
     startIndex?: IntFieldUpdateOperationsInput | number
@@ -3631,7 +3406,6 @@ export namespace Prisma {
   }
 
   export type NoteChunkUncheckedUpdateManyInput = {
-    id?: StringFieldUpdateOperationsInput | string
     noteId?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     chunkIndex?: IntFieldUpdateOperationsInput | number
@@ -3670,6 +3444,7 @@ export namespace Prisma {
     endsWith?: string | StringFieldRefInput<$PrismaModel>
     mode?: QueryMode
     not?: NestedStringNullableFilter<$PrismaModel> | string | null
+    isSet?: boolean
   }
 
   export type DateTimeFilter<$PrismaModel = never> = {
@@ -3687,11 +3462,6 @@ export namespace Prisma {
     every?: NoteChunkWhereInput
     some?: NoteChunkWhereInput
     none?: NoteChunkWhereInput
-  }
-
-  export type SortOrderInput = {
-    sort: SortOrder
-    nulls?: NullsOrder
   }
 
   export type NoteChunkOrderByRelationAggregateInput = {
@@ -3759,6 +3529,7 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedStringNullableFilter<$PrismaModel>
     _max?: NestedStringNullableFilter<$PrismaModel>
+    isSet?: boolean
   }
 
   export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
@@ -3880,6 +3651,7 @@ export namespace Prisma {
 
   export type NullableStringFieldUpdateOperationsInput = {
     set?: string | null
+    unset?: boolean
   }
 
   export type DateTimeFieldUpdateOperationsInput = {
@@ -3962,6 +3734,7 @@ export namespace Prisma {
     startsWith?: string | StringFieldRefInput<$PrismaModel>
     endsWith?: string | StringFieldRefInput<$PrismaModel>
     not?: NestedStringNullableFilter<$PrismaModel> | string | null
+    isSet?: boolean
   }
 
   export type NestedDateTimeFilter<$PrismaModel = never> = {
@@ -4018,6 +3791,7 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedStringNullableFilter<$PrismaModel>
     _max?: NestedStringNullableFilter<$PrismaModel>
+    isSet?: boolean
   }
 
   export type NestedIntNullableFilter<$PrismaModel = never> = {
@@ -4029,6 +3803,7 @@ export namespace Prisma {
     gt?: number | IntFieldRefInput<$PrismaModel>
     gte?: number | IntFieldRefInput<$PrismaModel>
     not?: NestedIntNullableFilter<$PrismaModel> | number | null
+    isSet?: boolean
   }
 
   export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {
@@ -4101,7 +3876,6 @@ export namespace Prisma {
 
   export type NoteChunkCreateManyNoteInputEnvelope = {
     data: NoteChunkCreateManyNoteInput | NoteChunkCreateManyNoteInput[]
-    skipDuplicates?: boolean
   }
 
   export type NoteChunkUpsertWithWhereUniqueWithoutNoteInput = {
@@ -4170,7 +3944,6 @@ export namespace Prisma {
   }
 
   export type NoteUpdateWithoutChunksInput = {
-    id?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     content?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
@@ -4179,7 +3952,6 @@ export namespace Prisma {
   }
 
   export type NoteUncheckedUpdateWithoutChunksInput = {
-    id?: StringFieldUpdateOperationsInput | string
     title?: StringFieldUpdateOperationsInput | string
     content?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: StringFieldUpdateOperationsInput | string
@@ -4199,7 +3971,6 @@ export namespace Prisma {
   }
 
   export type NoteChunkUpdateWithoutNoteInput = {
-    id?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     chunkIndex?: IntFieldUpdateOperationsInput | number
     startIndex?: IntFieldUpdateOperationsInput | number
@@ -4210,7 +3981,6 @@ export namespace Prisma {
   }
 
   export type NoteChunkUncheckedUpdateWithoutNoteInput = {
-    id?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     chunkIndex?: IntFieldUpdateOperationsInput | number
     startIndex?: IntFieldUpdateOperationsInput | number
@@ -4221,7 +3991,6 @@ export namespace Prisma {
   }
 
   export type NoteChunkUncheckedUpdateManyWithoutNoteInput = {
-    id?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     chunkIndex?: IntFieldUpdateOperationsInput | number
     startIndex?: IntFieldUpdateOperationsInput | number
