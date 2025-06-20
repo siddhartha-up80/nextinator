@@ -47,24 +47,18 @@ export default function AIChatbox({
   );
   const [sessionTitle, setSessionTitle] = useState<string>("New Chat");
   const inputRef = useRef<HTMLInputElement>(null);
-  const scrollRef = useRef<HTMLInputElement>(null); // Load chat session when sessionId changes
+  const scrollRef = useRef<HTMLInputElement>(null);
+  // Load chat session when sessionId changes
   useEffect(() => {
     // Convert both to string for comparison, treating undefined as empty string
     const sessionIdStr = sessionId || "";
     const currentSessionIdStr = currentSessionId || "";
 
-    console.log("SessionId effect triggered:", {
-      sessionId: sessionIdStr,
-      currentSessionId: currentSessionIdStr,
-    });
-
     if (sessionIdStr !== currentSessionIdStr) {
       if (sessionIdStr === "") {
         // Empty string or undefined means start a new chat
-        console.log("Clearing chat due to empty sessionId");
         clearChat();
       } else {
-        console.log("Loading chat session:", sessionIdStr);
         loadChatSession(sessionIdStr);
       }
     }
@@ -148,7 +142,6 @@ export default function AIChatbox({
     }
   }, [messages, saveChatSession]);
   const clearChat = () => {
-    console.log("clearChat called - clearing messages and session");
     setMessages([]);
     setCurrentSessionId(null);
     setSessionTitle("New Chat");

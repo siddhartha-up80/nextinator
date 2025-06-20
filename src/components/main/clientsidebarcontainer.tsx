@@ -35,12 +35,6 @@ const ClientSidebarContainer = ({
   >();
   const handleSelectChat = (sessionId: string) => {
     // Handle empty string as undefined (for new chats)
-    console.log(
-      "handleSelectChat called with:",
-      sessionId,
-      "converting to:",
-      sessionId || undefined
-    );
     setCurrentSessionId(sessionId || undefined);
   };
   return (

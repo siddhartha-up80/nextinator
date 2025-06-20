@@ -2,14 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/db/prisma";
 
-// GET /api/chat-sessions - Get all chat sessions for the user
-export async function GET() {
+// GET /api/chat-sessions - Get all chat sessions for the user with pagination
+export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Parse pagination parameters
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination info
+    const totalCount = await prisma.chatSession.count({
+      where: {
+        userId,
+        messages: {
+          some: {}, // Only include sessions that have at least one message
+        },
+      },
+    });
+
     const sessions = await prisma.chatSession.findMany({
       where: {
         userId,
@@ -28,9 +45,17 @@ export async function GET() {
           },
         },
       },
+      skip,
+      take: limit,
     });
 
-    return NextResponse.json(sessions);
+    return NextResponse.json({
+      sessions,
+      total: totalCount,
+      page,
+      limit,
+      hasMore: skip + sessions.length < totalCount,
+    });
   } catch (error) {
     console.error("Error fetching chat sessions:", error);
     return NextResponse.json(
