@@ -16,6 +16,9 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import "./markdown.css";
 
 interface AIChatboxProps {
   open?: boolean;
@@ -57,15 +60,17 @@ export default function AIChatbox({ open, onclose }: AIChatboxProps) {
         className="mt-3 overflow-y-auto px-3 flex-1 h-full w-full"
         ref={scrollRef}
       >
-        {messages.map((message) => (
+        {" "}
+        {messages.map((message, index) => (
           <ChatMessage
             message={message}
             key={message.id}
             handleInputChange={handleInputChange}
             handleSubmit={handleSubmit}
             isLoading={isLoading}
+            isLastMessage={index === messages.length - 1}
           />
-        ))}
+        ))}{" "}
         {isLoading && lastMessageIsUser && (
           <ChatMessage
             message={{
@@ -75,6 +80,7 @@ export default function AIChatbox({ open, onclose }: AIChatboxProps) {
             handleInputChange={handleInputChange}
             handleSubmit={handleSubmit}
             isLoading={isLoading}
+            isLastMessage={true}
           />
         )}
         {error && (
@@ -86,6 +92,7 @@ export default function AIChatbox({ open, onclose }: AIChatboxProps) {
             handleInputChange={handleInputChange}
             handleSubmit={handleSubmit}
             isLoading={isLoading}
+            isLastMessage={true}
           />
         )}
         {!error && messages.length === 0 && (
@@ -252,11 +259,13 @@ function ChatMessage({
   handleInputChange,
   handleSubmit,
   isLoading,
+  isLastMessage,
 }: {
   message: Pick<Message, "role" | "content">;
   handleInputChange: any;
   handleSubmit: any;
   isLoading: boolean;
+  isLastMessage: boolean;
 }) {
   const { user } = useUser();
   const [copied, setCopied] = useState(false);
@@ -300,14 +309,92 @@ function ChatMessage({
     >
       {isAiMessage && <Bot className="mr-2 shrink-0" />}
       <div className="space-y-2">
-        <p
+        {" "}
+        <div
           className={cn(
-            "whitespace-pre-line rounded-md border px-3 py-2",
-            isAiMessage ? "bg-background" : "bg-primary text-primary-foreground"
+            "rounded-md border px-3 py-2",
+            isAiMessage
+              ? "bg-background markdown-content"
+              : "bg-primary text-primary-foreground whitespace-pre-line"
           )}
         >
-          {content}
-        </p>
+          {isAiMessage ? (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // Custom styling for markdown elements
+                h1: ({ children }) => (
+                  <h1 className="text-2xl font-bold mb-2">{children}</h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-xl font-semibold mb-2">{children}</h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-lg font-medium mb-1">{children}</h3>
+                ),
+                p: ({ children }) => <p className="mb-2">{children}</p>,
+                ul: ({ children }) => (
+                  <ul className="list-disc list-outside ml-4 mb-2">
+                    {children}
+                  </ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="list-decimal list-outside ml-4 mb-2">
+                    {children}
+                  </ol>
+                ),
+                li: ({ children }) => <li>{children}</li>,
+                code: ({ children, className, ...props }) => {
+                  const isInline = !className;
+                  return isInline ? (
+                    <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-sm font-mono">
+                      {children}
+                    </code>
+                  ) : (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+                pre: ({ children }) => (
+                  <pre className="bg-gray-100 dark:bg-gray-900 p-2 rounded-md overflow-x-auto text-sm mb-2">
+                    {children}
+                  </pre>
+                ),
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-4 border-gray-300 pl-3 italic mb-2">
+                    {children}
+                  </blockquote>
+                ),
+                table: ({ children }) => (
+                  <div className="overflow-x-auto mb-2">
+                    <table className="min-w-full border border-gray-300 dark:border-gray-700">
+                      {children}
+                    </table>
+                  </div>
+                ),
+                th: ({ children }) => (
+                  <th className="border border-gray-300 dark:border-gray-700 px-2 py-1 bg-gray-100 dark:bg-gray-800 font-semibold text-left text-sm">
+                    {children}
+                  </th>
+                ),
+                td: ({ children }) => (
+                  <td className="border border-gray-300 dark:border-gray-700 px-2 py-1 text-sm">
+                    {children}
+                  </td>
+                ),
+                strong: ({ children }) => (
+                  <strong className="font-semibold">{children}</strong>
+                ),
+                em: ({ children }) => <em className="italic">{children}</em>,
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          ) : (
+            content
+          )}
+        </div>{" "}
         {isAiMessage && !isLoading && (
           <div className="flex justify-between w-full">
             <Button variant={"secondary"} size={"sm"} onClick={handleCopy}>
@@ -321,18 +408,19 @@ function ChatMessage({
                 </>
               )}
             </Button>
-            <Button
-              variant={"secondary"}
-              type="button"
-              size={"sm"}
-              onClick={handleContinue}
-            >
-              Continue Response <StepForward size={18} className="ml-2" />
-            </Button>
+            {isLastMessage && (
+              <Button
+                variant={"secondary"}
+                type="button"
+                size={"sm"}
+                onClick={handleContinue}
+              >
+                Continue Response <StepForward size={18} className="ml-2" />
+              </Button>
+            )}
           </div>
         )}
-
-        {isAiMessage && !isLoading && (
+        {isAiMessage && !isLoading && isLastMessage && (
           <div className="text-sm text-yellow-600 flex items-center gap-1 mt-1">
             <XCircle size={16} className="inline" />
             Tips: Delete <Trash size={12} />
