@@ -356,3 +356,57 @@ export async function DELETE(req: Request) {
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+export async function GET(request: Request) {
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get("page") || "1");
+    const limit = parseInt(url.searchParams.get("limit") || "12");
+    const search = url.searchParams.get("search") || "";
+
+    const skip = (page - 1) * limit;
+
+    // Build where clause for search
+    const whereClause = {
+      userId,
+      ...(search && {
+        OR: [
+          { title: { contains: search, mode: "insensitive" as const } },
+          { content: { contains: search, mode: "insensitive" as const } },
+        ],
+      }),
+    };
+
+    // Get total count for pagination
+    const totalCount = await prisma.note.count({
+      where: whereClause,
+    });
+
+    // Get paginated notes
+    const notes = await prisma.note.findMany({
+      where: whereClause,
+      orderBy: { updatedAt: "desc" },
+      skip,
+      take: limit,
+    });
+
+    return Response.json({
+      notes,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount,
+        hasMore: skip + notes.length < totalCount,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching notes:", error);
+    return Response.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
