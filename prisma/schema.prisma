@@ -45,3 +45,29 @@ model NoteChunk {
   @@unique([noteId, chunkIndex])
   @@map("note_chunks")
 }
+
+model ChatSession {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationship to chat messages
+  messages ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  chatSessionId String   @db.ObjectId
+  role          String // "user" or "assistant"
+  content       String
+  createdAt     DateTime @default(now())
+
+  // Relationship to the parent chat session
+  chatSession ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}

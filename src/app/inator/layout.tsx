@@ -5,12 +5,5 @@ export default function OptiflowLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div>
-      <div>
-        <SidebarContainer />
-      </div>
-      <div className="md:ml-[270px] md:mt-14 mt-20 p-4 md:p-0">{children}</div>
-    </div>
-  );
+  return <SidebarContainer>{children}</SidebarContainer>;
 }

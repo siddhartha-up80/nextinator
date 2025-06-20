@@ -19,8 +19,17 @@ import {
 import Sidebar from "./sidebar";
 import { Button } from "../ui/button";
 import Addnotedialog from "./addnotedialog";
+import ChatHistoryDialog from "./chathistorydialog";
 
-const Navbar = ({ allNotes }: any) => {
+const Navbar = ({
+  allNotes,
+  onSelectChat,
+  currentSessionId,
+}: {
+  allNotes: any;
+  onSelectChat?: (sessionId: string) => void;
+  currentSessionId?: string;
+}) => {
   const [showAddNoteDialog, setShowNoteDialog] = useState(false);
   const { isLoaded, isSignedIn, user } = useUser();
   const { theme } = useTheme();
@@ -51,10 +60,15 @@ const Navbar = ({ allNotes }: any) => {
         <div className="justify-center items-center flex w-full">
           <div className="w-10 h-10 border-4 border-dashed rounded-full animate-spin border-rose-600 mx-auto"></div>
         </div>
-      )}
-
-      <div className="flex gap-4 items-center">
+      )}{" "}
+      <div className="flex gap-2 items-center">
         <ThemeToggleButton />
+        {onSelectChat && (
+          <ChatHistoryDialog
+            onSelectChat={onSelectChat}
+            currentSessionId={currentSessionId}
+          />
+        )}
         <Button
           className="flex gap-2 items-center font-semibold text-start justify-center pl-2"
           variant={"default"}

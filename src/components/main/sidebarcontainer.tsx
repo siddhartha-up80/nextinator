@@ -1,26 +1,20 @@
 import React from "react";
-import Navbar from "./navbar";
-import Sidebar from "./sidebar";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/db/prisma";
+import ClientSidebarContainer from "./clientsidebarcontainer";
 
-const SidebarContainer = async () => {
+interface SidebarContainerProps {
+  children?: React.ReactNode;
+}
+
+const SidebarContainer = async ({ children }: SidebarContainerProps) => {
   const { userId } = await auth();
 
   if (!userId) throw Error("userId undefined");
 
   const allNotes = await prisma?.note.findMany({ where: { userId } });
 
-  return (
-    <div>
-      <div>
-        <Navbar allNotes={allNotes} />
-      </div>
-      <div className="hidden md:block">
-        <Sidebar allNotes={allNotes} />
-      </div>
-    </div>
-  );
+  return <ClientSidebarContainer allNotes={allNotes} children={children} />;
 };
 
 export default SidebarContainer;

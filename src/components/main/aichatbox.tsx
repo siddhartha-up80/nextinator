@@ -13,7 +13,7 @@ import {
 import { Message } from "ai";
 import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import ReactMarkdown from "react-markdown";
@@ -23,9 +23,16 @@ import "./markdown.css";
 interface AIChatboxProps {
   open?: boolean;
   onclose?: () => void;
+  sessionId?: string;
+  onSessionChange?: (sessionId: string) => void;
 }
 
-export default function AIChatbox({ open, onclose }: AIChatboxProps) {
+export default function AIChatbox({
+  open,
+  onclose,
+  sessionId,
+  onSessionChange,
+}: AIChatboxProps) {
   const {
     messages,
     input,
@@ -35,9 +42,125 @@ export default function AIChatbox({ open, onclose }: AIChatboxProps) {
     isLoading,
     error,
   } = useChat();
-
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(
+    sessionId || null
+  );
+  const [sessionTitle, setSessionTitle] = useState<string>("New Chat");
   const inputRef = useRef<HTMLInputElement>(null);
-  const scrollRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLInputElement>(null); // Load chat session when sessionId changes
+  useEffect(() => {
+    // Convert both to string for comparison, treating undefined as empty string
+    const sessionIdStr = sessionId || "";
+    const currentSessionIdStr = currentSessionId || "";
+
+    console.log("SessionId effect triggered:", {
+      sessionId: sessionIdStr,
+      currentSessionId: currentSessionIdStr,
+    });
+
+    if (sessionIdStr !== currentSessionIdStr) {
+      if (sessionIdStr === "") {
+        // Empty string or undefined means start a new chat
+        console.log("Clearing chat due to empty sessionId");
+        clearChat();
+      } else {
+        console.log("Loading chat session:", sessionIdStr);
+        loadChatSession(sessionIdStr);
+      }
+    }
+  }, [sessionId, currentSessionId]);
+
+  const loadChatSession = async (sessionId: string) => {
+    try {
+      const response = await fetch(`/api/chat-sessions/${sessionId}`);
+      if (response.ok) {
+        const session = await response.json();
+        setMessages(
+          session.messages.map((msg: any) => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+          }))
+        );
+        setCurrentSessionId(sessionId);
+        setSessionTitle(session.title);
+      }
+    } catch (error) {
+      console.error("Failed to load chat session:", error);
+    }
+  };
+  const saveChatSession = useCallback(async () => {
+    if (messages.length === 0) return;
+
+    try {
+      // Save messages to database
+      const response = await fetch("/api/chat-messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          messages: messages,
+          createSession: !currentSessionId, // Create session if none exists
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // If a new session was created, update our current session ID
+        if (result.sessionId && !currentSessionId) {
+          setCurrentSessionId(result.sessionId);
+          onSessionChange?.(result.sessionId);
+        }
+
+        // Auto-generate title from first user message if still "New Chat"
+        if (sessionTitle === "New Chat" && messages.length > 0) {
+          const firstUserMessage = messages.find((m) => m.role === "user");
+          if (firstUserMessage) {
+            const newTitle = firstUserMessage.content.slice(0, 50) + "...";
+            setSessionTitle(newTitle);
+
+            // Update session title in database
+            const sessionIdToUpdate = result.sessionId || currentSessionId;
+            await fetch(`/api/chat-sessions/${sessionIdToUpdate}`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                title: newTitle,
+              }),
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to save chat session:", error);
+    }
+  }, [messages, currentSessionId, sessionTitle, onSessionChange]);
+
+  // Auto-save messages when they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveChatSession();
+    }
+  }, [messages, saveChatSession]);
+  const clearChat = () => {
+    console.log("clearChat called - clearing messages and session");
+    setMessages([]);
+    setCurrentSessionId(null);
+    setSessionTitle("New Chat");
+    onSessionChange?.("");
+  };
+  // Initialize with empty state - session will be created when first message is sent
+  useEffect(() => {
+    if (!currentSessionId && !sessionId && messages.length === 0) {
+      // Just set up empty state, don't create session yet
+      setSessionTitle("New Chat");
+    }
+  }, []);
 
   useEffect(() => {
     if (inputRef.current) {
@@ -228,13 +351,14 @@ export default function AIChatbox({ open, onclose }: AIChatboxProps) {
           onSubmit={handleSubmit}
           className="m-3 flex gap-1 max-w-5xl mx-auto"
         >
+          {" "}
           <Button
             title="Clear Chat"
             variant="outline"
             size="icon"
             className="shrink-0"
             type="button"
-            onClick={() => setMessages([])}
+            onClick={clearChat}
           >
             <Trash />
           </Button>
@@ -347,7 +471,7 @@ function ChatMessage({
                 code: ({ children, className, ...props }) => {
                   const isInline = !className;
                   return isInline ? (
-                    <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-sm font-mono">
+                    <code className="bg-gray-100 dark:bg-gray-800 text-white px-1 rounded text-sm font-mono">
                       {children}
                     </code>
                   ) : (
@@ -357,7 +481,7 @@ function ChatMessage({
                   );
                 },
                 pre: ({ children }) => (
-                  <pre className="bg-gray-100 dark:bg-gray-900 p-2 rounded-md overflow-x-auto text-sm mb-2">
+                  <pre className="bg-gray-100 dark:bg-gray-900 text-white p-2 rounded-md overflow-x-auto text-sm mb-2">
                     {children}
                   </pre>
                 ),
