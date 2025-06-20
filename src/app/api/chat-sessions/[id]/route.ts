@@ -5,7 +5,7 @@ import prisma from "@/lib/db/prisma";
 // GET /api/chat-sessions/[id] - Get a specific chat session with all messages
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sessionId = params.id;
+    const { id: sessionId } = await params;
 
     const session = await prisma.chatSession.findFirst({
       where: {
@@ -47,7 +47,7 @@ export async function GET(
 // PUT /api/chat-sessions/[id] - Update chat session title
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -56,7 +56,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sessionId = params.id;
+    const { id: sessionId } = await params;
     const { title } = await request.json();
 
     // Verify ownership before update
