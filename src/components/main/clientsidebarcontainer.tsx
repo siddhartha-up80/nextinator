@@ -3,6 +3,7 @@
 import React, { useState, createContext, useContext } from "react";
 import Navbar from "./navbar";
 import Sidebar from "./sidebar";
+import { SharingProvider } from "./sharingstatus";
 
 interface ChatSessionContextType {
   currentSessionId: string | undefined;
@@ -38,30 +39,32 @@ const ClientSidebarContainer = ({
     setCurrentSessionId(sessionId || undefined);
   };
   return (
-    <ChatSessionContext.Provider
-      value={{
-        currentSessionId,
-        setCurrentSessionId,
-      }}
-    >
-      <div>
+    <SharingProvider>
+      <ChatSessionContext.Provider
+        value={{
+          currentSessionId,
+          setCurrentSessionId,
+        }}
+      >
         <div>
-          <Navbar
-            allNotes={allNotes}
-            onSelectChat={handleSelectChat}
-            currentSessionId={currentSessionId}
-          />
-        </div>
-        <div className="hidden md:block">
-          <Sidebar allNotes={allNotes} />
-        </div>
-        {children && (
-          <div className="md:ml-[270px] md:mt-14 mt-20 p-4 md:p-0">
-            {children}
+          <div>
+            <Navbar
+              allNotes={allNotes}
+              onSelectChat={handleSelectChat}
+              currentSessionId={currentSessionId}
+            />
           </div>
-        )}
-      </div>
-    </ChatSessionContext.Provider>
+          <div className="hidden md:block">
+            <Sidebar allNotes={allNotes} />
+          </div>
+          {children && (
+            <div className="md:ml-[270px] md:mt-14 mt-20 p-4 md:p-0">
+              {children}
+            </div>
+          )}
+        </div>
+      </ChatSessionContext.Provider>
+    </SharingProvider>
   );
 };
 

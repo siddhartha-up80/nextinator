@@ -19,6 +19,7 @@ import { Button } from "../ui/button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./markdown.css";
+import { useToast } from "@/components/ui/toast";
 
 interface AIChatboxProps {
   open?: boolean;
@@ -48,6 +49,7 @@ export default function AIChatbox({
   const [sessionTitle, setSessionTitle] = useState<string>("New Chat");
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLInputElement>(null);
+  const { showToast } = useToast();
   // Load chat session when sessionId changes
   useEffect(() => {
     // Convert both to string for comparison, treating undefined as empty string
@@ -81,6 +83,7 @@ export default function AIChatbox({
       }
     } catch (error) {
       console.error("Failed to load chat session:", error);
+      showToast("Failed to load chat session", "error");
     }
   };
   const saveChatSession = useCallback(async () => {
@@ -132,6 +135,7 @@ export default function AIChatbox({
       }
     } catch (error) {
       console.error("Failed to save chat session:", error);
+      showToast("Failed to save chat session", "error");
     }
   }, [messages, currentSessionId, sessionTitle, onSessionChange]);
 
@@ -146,6 +150,7 @@ export default function AIChatbox({
     setCurrentSessionId(null);
     setSessionTitle("New Chat");
     onSessionChange?.("");
+    showToast("Chat cleared successfully", "success");
   };
   // Initialize with empty state - session will be created when first message is sent
   useEffect(() => {
@@ -386,13 +391,21 @@ function ChatMessage({
 }) {
   const { user } = useUser();
   const [copied, setCopied] = useState(false);
+  const { showToast } = useToast();
 
   const isAiMessage = role === "assistant";
-
   const handleCopy = () => {
-    navigator.clipboard.writeText(content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard
+      .writeText(content)
+      .then(() => {
+        setCopied(true);
+        showToast("Message copied to clipboard!", "success");
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch((error) => {
+        console.error("Failed to copy message:", error);
+        showToast("Failed to copy message", "error");
+      });
   };
 
   const handleContinue = async (e: React.MouseEvent) => {

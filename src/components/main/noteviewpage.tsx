@@ -13,6 +13,8 @@ import Addnotedialog from "./addnotedialog";
 import { Button } from "../ui/button";
 import { ArrowLeft, Edit, Trash } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useToast } from "../ui/toast";
+import { ConfirmDialog } from "../ui/confirm-dialog";
 
 interface NoteViewPageProps {
   note: NoteModel;
@@ -21,7 +23,9 @@ interface NoteViewPageProps {
 const NoteViewPage = ({ note }: NoteViewPageProps) => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const router = useRouter();
+  const { showToast } = useToast();
 
   const wasUpdated = note.updatedAt > note.createdAt;
 
@@ -45,12 +49,14 @@ const NoteViewPage = ({ note }: NoteViewPageProps) => {
       });
       if (!response.ok) throw Error("Status Code: " + response.status);
 
+      showToast("Note deleted successfully!", "success");
       router.push("/inator");
     } catch (error) {
       console.error(error);
-      alert("Something went wrong, Please try again later!");
+      showToast("Failed to delete note. Please try again later!", "error");
     } finally {
       setDeleteInProgress(false);
+      setShowDeleteDialog(false);
     }
   };
 
@@ -77,15 +83,15 @@ const NoteViewPage = ({ note }: NoteViewPageProps) => {
                 >
                   <Edit size={16} />
                   Edit
-                </Button>
+                </Button>{" "}
                 <Button
                   variant="destructive"
-                  onClick={handleDelete}
+                  onClick={() => setShowDeleteDialog(true)}
                   disabled={deleteInProgress}
                   className="flex items-center gap-2"
                 >
                   <Trash size={16} />
-                  {deleteInProgress ? "Deleting..." : "Delete"}
+                  Delete
                 </Button>
               </div>
             </div>
@@ -120,6 +126,18 @@ const NoteViewPage = ({ note }: NoteViewPageProps) => {
           router.refresh();
           setShowEditDialog(false);
         }}
+      />
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete Note"
+        description={`Are you sure you want to delete "${note.title}"? This action cannot be undone and the note will be permanently removed.`}
+        confirmText="Delete Note"
+        cancelText="Cancel"
+        onConfirm={handleDelete}
+        variant="destructive"
+        loading={deleteInProgress}
       />
     </>
   );

@@ -17,15 +17,24 @@ import {
   Edit3,
   Plus,
   Loader2,
+  Share2,
+  Copy,
+  CheckCircle,
+  Shield,
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useSharingStatus } from "./sharingstatus";
+import { useToast } from "@/components/ui/toast";
 
 interface ChatSession {
   id: string;
   title: string;
   createdAt: string;
   updatedAt: string;
+  isShared?: boolean;
+  shareToken?: string;
   messages: Array<{
     id: string;
     role: string;
@@ -37,21 +46,51 @@ interface ChatSession {
 interface ChatHistoryDialogProps {
   onSelectChat: (sessionId: string) => void;
   currentSessionId?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
 }
 
 export default function ChatHistoryDialog({
   onSelectChat,
   currentSessionId,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
+  trigger,
 }: ChatHistoryDialogProps) {
   const { user } = useUser();
+  const { updateSharingStatus: updateGlobalSharingStatus } = useSharingStatus();
+  const { showToast } = useToast();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Use external state if provided, otherwise use internal state
+  const isOpen = externalOpen !== undefined ? externalOpen : internalIsOpen;
+  const setIsOpen =
+    externalOnOpenChange !== undefined
+      ? externalOnOpenChange
+      : setInternalIsOpen;
   const [editTitle, setEditTitle] = useState("");
+  const [sharingStatus, setSharingStatus] = useState<
+    Record<string, { loading: boolean; copied: boolean; shareUrl?: string }>
+  >({});
+  const [unshareDialog, setUnshareDialog] = useState<{
+    open: boolean;
+    sessionId: string;
+    sessionTitle: string;
+  }>({ open: false, sessionId: "", sessionTitle: "" });
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    sessionId: string;
+    sessionTitle: string;
+  }>({ open: false, sessionId: "", sessionTitle: "" });
+  const [unsharingLoading, setUnsharingLoading] = useState(false);
+  const [deletingLoading, setDeletingLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const SESSIONS_PER_PAGE = 10;
   const fetchSessions = async (pageNum: number = 1, reset: boolean = true) => {
@@ -92,6 +131,7 @@ export default function ChatHistoryDialog({
       }
     } catch (error) {
       console.error("Failed to fetch chat sessions:", error);
+      showToast("Failed to load chat history", "error");
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -128,12 +168,24 @@ export default function ChatHistoryDialog({
     onSelectChat(""); // Empty string to indicate new/empty chat
     setIsOpen(false);
   };
-
   const deleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (!confirm("Are you sure you want to delete this chat?")) return;
+    // Find the session for the title and show confirmation dialog
+    const session = sessions.find((s) => s.id === sessionId);
+    setDeleteDialog({
+      open: true,
+      sessionId,
+      sessionTitle: session?.title || "this chat",
+    });
+  };
 
+  const confirmDeleteSession = async () => {
+    const sessionId = deleteDialog.sessionId;
+    const sessionTitle = deleteDialog.sessionTitle;
+    if (!sessionId) return;
+
+    setDeletingLoading(true);
     try {
       const response = await fetch(`/api/chat-sessions?id=${sessionId}`, {
         method: "DELETE",
@@ -146,9 +198,16 @@ export default function ChatHistoryDialog({
         }
         // Refresh the list to maintain pagination
         fetchSessions(1, true);
+        showToast(`"${sessionTitle}" deleted successfully`, "success");
+        setDeleteDialog({ open: false, sessionId: "", sessionTitle: "" });
+      } else {
+        showToast("Failed to delete chat", "error");
       }
     } catch (error) {
       console.error("Failed to delete chat session:", error);
+      showToast("Failed to delete chat", "error");
+    } finally {
+      setDeletingLoading(false);
     }
   };
 
@@ -177,9 +236,13 @@ export default function ChatHistoryDialog({
           )
         );
         setEditingId(null);
+        showToast("Chat title updated successfully", "success");
+      } else {
+        showToast("Failed to update chat title", "error");
       }
     } catch (error) {
       console.error("Failed to update chat title:", error);
+      showToast("Failed to update chat title", "error");
     }
   };
 
@@ -207,14 +270,167 @@ export default function ChatHistoryDialog({
     return "No messages yet";
   };
 
+  const shareSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    setSharingStatus((prev) => ({
+      ...prev,
+      [sessionId]: { ...prev[sessionId], loading: true },
+    }));
+
+    try {
+      const response = await fetch(`/api/chat-sessions/${sessionId}/share`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSharingStatus((prev) => ({
+          ...prev,
+          [sessionId]: {
+            loading: false,
+            copied: false,
+            shareUrl: data.shareUrl,
+          },
+        }));
+
+        // Update the session in the list to show it's shared
+        setSessions(
+          sessions.map((s) =>
+            s.id === sessionId
+              ? { ...s, isShared: true, shareToken: data.shareToken }
+              : s
+          )
+        ); // Update global sharing status for navbar sync
+        updateGlobalSharingStatus(sessionId, {
+          isShared: true,
+          shareUrl: data.shareUrl,
+        });
+        showToast("Chat shared successfully", "success");
+      } else {
+        showToast("Failed to share chat", "error");
+      }
+    } catch (error) {
+      console.error("Failed to share session:", error);
+      showToast("Failed to share chat", "error");
+      setSharingStatus((prev) => ({
+        ...prev,
+        [sessionId]: { ...prev[sessionId], loading: false },
+      }));
+    }
+  };
+  const unshareSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Find the session title for the dialog
+    const session = sessions.find((s) => s.id === sessionId);
+    setUnshareDialog({
+      open: true,
+      sessionId,
+      sessionTitle: session?.title || "this chat",
+    });
+  };
+
+  const confirmUnshareSession = async () => {
+    const sessionId = unshareDialog.sessionId;
+    if (!sessionId) return;
+
+    setUnsharingLoading(true);
+    try {
+      const response = await fetch(`/api/chat-sessions/${sessionId}/share`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setSharingStatus((prev) => {
+          const newState = { ...prev };
+          delete newState[sessionId];
+          return newState;
+        });
+
+        // Update the session in the list to show it's no longer shared
+        setSessions(
+          sessions.map((s) =>
+            s.id === sessionId
+              ? { ...s, isShared: false, shareToken: undefined }
+              : s
+          )
+        ); // Update global sharing status for navbar sync
+        updateGlobalSharingStatus(sessionId, { isShared: false });
+        showToast("Chat sharing disabled successfully", "success");
+        setUnshareDialog({ open: false, sessionId: "", sessionTitle: "" });
+      } else {
+        showToast("Failed to disable sharing", "error");
+      }
+    } catch (error) {
+      console.error("Failed to unshare session:", error);
+      showToast("Failed to disable sharing", "error");
+    } finally {
+      setUnsharingLoading(false);
+    }
+  };
+  const copyShareLink = async (
+    sessionId: string,
+    shareUrl: string,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setSharingStatus((prev) => ({
+        ...prev,
+        [sessionId]: { ...prev[sessionId], copied: true },
+      }));
+
+      // Show toast notification
+      showToast("Share link copied to clipboard!", "success");
+
+      // Reset copied status after 2 seconds
+      setTimeout(() => {
+        setSharingStatus((prev) => ({
+          ...prev,
+          [sessionId]: { ...prev[sessionId], copied: false },
+        }));
+      }, 2000);
+    } catch (error) {
+      console.error("Failed to copy link:", error);
+      showToast("Failed to copy link to clipboard", "error");
+
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        setSharingStatus((prev) => ({
+          ...prev,
+          [sessionId]: { ...prev[sessionId], copied: true },
+        }));
+        showToast("Share link copied to clipboard!", "success");
+        setTimeout(() => {
+          setSharingStatus((prev) => ({
+            ...prev,
+            [sessionId]: { ...prev[sessionId], copied: false },
+          }));
+        }, 2000);
+      } catch (fallbackError) {
+        console.error("Fallback copy failed:", fallbackError);
+        showToast("Failed to copy link to clipboard", "error");
+      }
+      document.body.removeChild(textArea);
+    }
+  };
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <History size={16} className="mr-2" />
-          <span className="hidden md:block">Chat History</span>
-        </Button>
-      </DialogTrigger>
+      {!trigger && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <History size={16} className="mr-2" />
+            <span className="hidden md:block">Chat History</span>
+          </Button>
+        </DialogTrigger>
+      )}
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
@@ -265,6 +481,7 @@ export default function ChatHistoryDialog({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
+                      {" "}
                       {editingId === session.id ? (
                         <Input
                           value={editTitle}
@@ -283,9 +500,16 @@ export default function ChatHistoryDialog({
                           autoFocus
                         />
                       ) : (
-                        <h4 className="font-medium text-sm truncate">
-                          {session.title}
-                        </h4>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-medium text-sm truncate">
+                            {session.title}
+                          </h4>{" "}
+                          {session.isShared && (
+                            <div title="Shared chat">
+                              <Share2 className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                            </div>
+                          )}
+                        </div>
                       )}
                       {/* <p className="text-xs text-muted-foreground truncate mt-1">
                         {getPreviewText(session)}
@@ -310,7 +534,59 @@ export default function ChatHistoryDialog({
                         className="h-6 w-6 p-0 text-destructive hover:text-destructive"
                       >
                         <Trash2 size={12} />
-                      </Button>
+                      </Button>{" "}
+                      {/* Share/Copy Link Button */}
+                      {session.isShared ? (
+                        <div className="flex items-center space-x-1">
+                          {sharingStatus[session.id]?.shareUrl && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) =>
+                                copyShareLink(
+                                  session.id,
+                                  sharingStatus[session.id].shareUrl!,
+                                  e
+                                )
+                              }
+                              className="h-6 w-6 p-0"
+                              title="Copy share link"
+                            >
+                              {sharingStatus[session.id]?.copied ? (
+                                <CheckCircle
+                                  className="text-green-500"
+                                  size={12}
+                                />
+                              ) : (
+                                <Copy size={12} />
+                              )}
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => unshareSession(session.id, e)}
+                            className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700"
+                            title="Disable sharing"
+                          >
+                            <Shield size={12} />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => shareSession(session.id, e)}
+                          className="h-6 w-6 p-0"
+                          disabled={sharingStatus[session.id]?.loading}
+                        >
+                          {sharingStatus[session.id]?.loading ? (
+                            <Loader2 className="animate-spin" size={12} />
+                          ) : (
+                            <Share2 size={12} />
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -331,9 +607,33 @@ export default function ChatHistoryDialog({
                 </div>
               )}
             </>
-          )}
+          )}{" "}
         </div>
-      </DialogContent>
+      </DialogContent>{" "}
+      {/* Unshare Confirmation Dialog */}
+      <ConfirmDialog
+        open={unshareDialog.open}
+        onOpenChange={(open) => setUnshareDialog({ ...unshareDialog, open })}
+        title="Disable Chat Sharing"
+        description={`Are you sure you want to disable sharing for "${unshareDialog.sessionTitle}"? The shared link will no longer work and other users won't be able to access this conversation.`}
+        confirmText="Disable Sharing"
+        cancelText="Cancel"
+        onConfirm={confirmUnshareSession}
+        variant="destructive"
+        loading={unsharingLoading}
+      />
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+        title="Delete Chat"
+        description={`Are you sure you want to delete "${deleteDialog.sessionTitle}"? This action cannot be undone and all messages in this conversation will be permanently removed.`}
+        confirmText="Delete Chat"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteSession}
+        variant="destructive"
+        loading={deletingLoading}
+      />
     </Dialog>
   );
 }

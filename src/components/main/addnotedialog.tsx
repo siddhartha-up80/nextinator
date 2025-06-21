@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CheckCircle, Copy, Trash, FileText, Upload } from "lucide-react";
 import { Button } from "../ui/button";
+import { useToast } from "@/components/ui/toast";
 import pdfToText from "react-pdftotext";
 
 interface AddnotedialogProps {
@@ -46,12 +47,19 @@ const Addnotedialog = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadInProgress, setUploadInProgress] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
-
+  const { showToast } = useToast();
   const handleCopy = (content: any) => {
-    navigator.clipboard.writeText(content).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard
+      .writeText(content)
+      .then(() => {
+        setCopied(true);
+        showToast("Content copied to clipboard!", "success");
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch((error) => {
+        console.error("Failed to copy content:", error);
+        showToast("Failed to copy content", "error");
+      });
   };
 
   const router = useRouter();
@@ -66,20 +74,21 @@ const Addnotedialog = ({
     const file = event.target.files?.[0];
     if (file) {
       if (file.type !== "application/pdf") {
-        alert("Please select a valid PDF file.");
+        showToast("Please select a valid PDF file.", "error");
         event.target.value = "";
         return;
       }
 
       const maxSize = 10 * 1024 * 1024; // 10MB
       if (file.size > maxSize) {
-        alert("File size must be less than 10MB.");
+        showToast("File size must be less than 10MB.", "error");
         event.target.value = "";
         return;
       }
 
       setSelectedFile(file);
       setUploadStatus("");
+      showToast("PDF file selected successfully", "success");
     }
   };
   async function processPDFAndUpload(title: string, file: File) {
@@ -120,11 +129,14 @@ const Addnotedialog = ({
         }
         throw new Error(errorMessage);
       }
-
       setUploadStatus("PDF processed successfully!");
+      showToast("PDF uploaded and processed successfully!", "success");
       return response.json();
     } catch (error) {
       console.error("PDF processing error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      showToast(`Failed to process PDF: ${errorMessage}`, "error");
       if (error instanceof Error) {
         throw new Error(`Failed to process PDF: ${error.message}`);
       } else {
@@ -141,6 +153,7 @@ const Addnotedialog = ({
         await processPDFAndUpload(input.title, selectedFile);
         setSelectedFile(null);
         form.reset();
+        showToast("Note created from PDF successfully!", "success");
       } else if (noteToEdit) {
         const response = await fetch("/api/notes", {
           method: "PUT",
@@ -150,6 +163,7 @@ const Addnotedialog = ({
           }),
         });
         if (!response.ok) throw Error("Status Code: " + response.status);
+        showToast("Note updated successfully!", "success");
       } else {
         const response = await fetch("/api/notes", {
           method: "POST",
@@ -157,6 +171,7 @@ const Addnotedialog = ({
         });
         if (!response.ok) throw Error("Status Code: " + response.status);
         form.reset();
+        showToast("Note created successfully!", "success");
       }
 
       if (onSuccess) {
@@ -167,11 +182,11 @@ const Addnotedialog = ({
       setOpen(false);
     } catch (error) {
       console.error(error);
-      alert(
+      const errorMessage =
         error instanceof Error
           ? error.message
-          : "Something went wrong, Please try again later!"
-      );
+          : "Something went wrong, Please try again later!";
+      showToast(errorMessage, "error");
     } finally {
       setUploadInProgress(false);
     }
@@ -188,14 +203,14 @@ const Addnotedialog = ({
           id: noteToEdit.id,
         }),
       });
-
       if (!response.ok) throw Error("Status Code: " + response.status);
 
+      showToast("Note deleted successfully!", "success");
       router.refresh();
       setOpen(false);
     } catch (error) {
       console.error(error);
-      alert("Something went wrong, Please try again later!");
+      showToast("Failed to delete note. Please try again later!", "error");
     } finally {
       setDeleteInProgress(false);
     }

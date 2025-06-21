@@ -47,11 +47,13 @@ model NoteChunk {
 }
 
 model ChatSession {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  title     String
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  title      String
+  userId     String
+  isShared   Boolean  @default(false)
+  shareToken String?  @unique // Unique token for sharing
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Relationship to chat messages
   messages ChatMessage[]
