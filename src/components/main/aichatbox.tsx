@@ -49,6 +49,7 @@ export default function AIChatbox({
   const [sessionTitle, setSessionTitle] = useState<string>("New Chat");
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLInputElement>(null);
+  const isCreatingSession = useRef<boolean>(false);
   const { showToast } = useToast();
   // Load chat session when sessionId changes
   useEffect(() => {
@@ -89,6 +90,14 @@ export default function AIChatbox({
   const saveChatSession = useCallback(async () => {
     if (messages.length === 0) return;
 
+    // Prevent multiple simultaneous session creations
+    if (!currentSessionId && !isCreatingSession.current) {
+      isCreatingSession.current = true;
+    } else if (!currentSessionId && isCreatingSession.current) {
+      // Another save is already in progress, skip this one
+      return;
+    }
+
     try {
       // Save messages to database
       const response = await fetch("/api/chat-messages", {
@@ -110,6 +119,7 @@ export default function AIChatbox({
         if (result.sessionId && !currentSessionId) {
           setCurrentSessionId(result.sessionId);
           onSessionChange?.(result.sessionId);
+          isCreatingSession.current = false; // Reset the flag
         }
 
         // Auto-generate title from first user message if still "New Chat"
@@ -121,34 +131,41 @@ export default function AIChatbox({
 
             // Update session title in database
             const sessionIdToUpdate = result.sessionId || currentSessionId;
-            await fetch(`/api/chat-sessions/${sessionIdToUpdate}`, {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                title: newTitle,
-              }),
-            });
+            if (sessionIdToUpdate) {
+              await fetch(`/api/chat-sessions/${sessionIdToUpdate}`, {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  title: newTitle,
+                }),
+              });
+            }
           }
         }
       }
     } catch (error) {
       console.error("Failed to save chat session:", error);
       showToast("Failed to save chat session", "error");
+      isCreatingSession.current = false; // Reset flag on error
     }
   }, [messages, currentSessionId, sessionTitle, onSessionChange]);
-
-  // Auto-save messages when they change
+  // Auto-save messages when they change, but debounce rapid changes
   useEffect(() => {
     if (messages.length > 0) {
-      saveChatSession();
+      const saveTimeout = setTimeout(() => {
+        saveChatSession();
+      }, 1000); // Debounce saves by 1 second
+
+      return () => clearTimeout(saveTimeout);
     }
   }, [messages, saveChatSession]);
   const clearChat = () => {
     setMessages([]);
     setCurrentSessionId(null);
     setSessionTitle("New Chat");
+    isCreatingSession.current = false; // Reset the flag
     onSessionChange?.("");
     showToast("Chat cleared successfully", "success");
   };
@@ -473,6 +490,7 @@ function ChatMessage({
                     {children}
                   </ol>
                 ),
+                // eslint-disable-next-line react/jsx-key
                 li: ({ children }) => <li>{children}</li>,
                 code: ({ children, className, ...props }) => {
                   const isInline = !className;

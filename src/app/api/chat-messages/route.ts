@@ -21,17 +21,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let actualSessionId = sessionId;
-
-    // If no sessionId provided but createSession is true, create a new session
+    let actualSessionId = sessionId; // If no sessionId provided but createSession is true, create a new session
     if (!sessionId && createSession) {
-      const newSession = await prisma.chatSession.create({
-        data: {
-          title: "New Chat",
+      // Check if user already has a recent "New Chat" session that's empty
+      const recentEmptySession = await prisma.chatSession.findFirst({
+        where: {
           userId,
+          title: "New Chat",
+          messages: {
+            none: {}, // No messages
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
         },
       });
-      actualSessionId = newSession.id;
+
+      if (recentEmptySession) {
+        // Use existing empty session instead of creating a new one
+        actualSessionId = recentEmptySession.id;
+      } else {
+        // Create new session only if no empty one exists
+        const newSession = await prisma.chatSession.create({
+          data: {
+            title: "New Chat",
+            userId,
+          },
+        });
+        actualSessionId = newSession.id;
+      }
     }
 
     if (!actualSessionId) {
