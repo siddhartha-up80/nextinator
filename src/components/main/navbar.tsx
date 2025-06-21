@@ -76,18 +76,19 @@ const Navbar = ({
       if (contextStatus) {
         setCurrentChatShared(contextStatus.isShared);
         return;
-      }
-
-      // If not in context, fetch from API
+      } // If not in context, fetch from API
       try {
         const response = await fetch(`/api/chat-sessions/${currentSessionId}`);
         if (response.ok) {
           const data = await response.json();
           setCurrentChatShared(data.isShared || false);
-          // Update context with fetched data
+          // Update context with fetched data, construct shareUrl from shareToken if available
+          const shareUrl = data.shareToken
+            ? `${window.location.origin}/shared-chat/${data.shareToken}`
+            : undefined;
           updateSharingStatus(currentSessionId, {
             isShared: data.isShared || false,
-            shareUrl: data.shareUrl,
+            shareUrl: shareUrl,
           });
         }
       } catch (error) {
@@ -124,6 +125,7 @@ const Navbar = ({
           isShared: true,
           shareUrl: data.shareUrl,
         }); // Copy to clipboard
+
         await navigator.clipboard.writeText(data.shareUrl);
         setCurrentChatCopied(true);
         showToast("Chat shared! Link copied to clipboard", "success");
@@ -165,6 +167,48 @@ const Navbar = ({
       showToast("Failed to disable sharing", "error");
     } finally {
       setDisablingShare(false);
+    }
+  };
+  const copySharedChatLink = async () => {
+    if (!currentSessionId || currentSessionId === "" || !currentChatShared)
+      return;
+
+    try {
+      // Get the share URL from context or fetch it
+      const contextStatus = sharingStatus[currentSessionId];
+      let shareUrl = contextStatus?.shareUrl;
+
+      if (!shareUrl) {
+        // Fetch the session data to get the shareToken
+        const response = await fetch(`/api/chat-sessions/${currentSessionId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.shareToken) {
+            shareUrl = `${window.location.origin}/shared-chat/${data.shareToken}`;
+            // Update context with constructed URL
+            updateSharingStatus(currentSessionId, {
+              isShared: true,
+              shareUrl: shareUrl,
+            });
+          }
+        }
+      }
+
+      if (shareUrl) {
+        await navigator.clipboard.writeText(shareUrl);
+        setCurrentChatCopied(true);
+        showToast("Share link copied to clipboard!", "success");
+
+        // Reset copied status after 2 seconds
+        setTimeout(() => {
+          setCurrentChatCopied(false);
+        }, 2000);
+      } else {
+        showToast("Share link not found", "error");
+      }
+    } catch (error) {
+      console.error("Failed to copy share link:", error);
+      showToast("Failed to copy link to clipboard", "error");
     }
   };
   return (
@@ -210,40 +254,49 @@ const Navbar = ({
               onSelectChat={onSelectChat}
               currentSessionId={currentSessionId}
             />
-          )}
-
+          )}{" "}
           {/* Share Current Chat Button */}
           {currentSessionId && currentSessionId !== "" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={shareCurrentChat}
-              disabled={sharingCurrentChat || disablingShare}
-              className={`flex items-center gap-2 ${
-                currentChatShared
-                  ? "border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950"
-                  : ""
-              }`}
-            >
-              {sharingCurrentChat || disablingShare ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : currentChatCopied ? (
-                <CheckCircle className="w-4 h-4 text-green-500" />
-              ) : currentChatShared ? (
-                <Shield className="w-4 h-4 text-blue-600" />
-              ) : (
-                <Share2 className="w-4 h-4" />
-              )}
-              <span>
-                {currentChatCopied
-                  ? "Copied!"
-                  : currentChatShared
-                  ? "Shared Chat"
-                  : "Share Chat"}
-              </span>
-            </Button>
-          )}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={shareCurrentChat}
+                disabled={sharingCurrentChat || disablingShare}
+                className={`flex items-center gap-2 ${
+                  currentChatShared
+                    ? "border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950"
+                    : ""
+                }`}
+              >
+                {sharingCurrentChat || disablingShare ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : currentChatShared ? (
+                  <Shield className="w-4 h-4 text-blue-600" />
+                ) : (
+                  <Share2 className="w-4 h-4" />
+                )}
+                <span>{currentChatShared ? "Shared Chat" : "Share Chat"}</span>
+              </Button>
 
+              {/* Copy Link Button - only show when chat is shared */}
+              {currentChatShared && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={copySharedChatLink}
+                  className="flex items-center gap-2"
+                >
+                  {currentChatCopied ? (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                  <span>{currentChatCopied ? "Copied!" : "Copy Link"}</span>
+                </Button>
+              )}
+            </div>
+          )}
           <Button
             className="flex gap-2 items-center font-semibold"
             variant={"default"}
@@ -281,9 +334,7 @@ const Navbar = ({
                   <ThemeToggleButton />
                 </div>
               </DropdownMenuItem>
-
               <DropdownMenuSeparator />
-
               {/* Chat History */}
               {onSelectChat && (
                 <DropdownMenuItem
@@ -292,8 +343,7 @@ const Navbar = ({
                   <History className="w-4 h-4 mr-2" />
                   Chat History
                 </DropdownMenuItem>
-              )}
-
+              )}{" "}
               {/* Share Current Chat */}
               {currentSessionId && currentSessionId !== "" && (
                 <>
@@ -305,19 +355,25 @@ const Navbar = ({
                   >
                     {sharingCurrentChat || disablingShare ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : currentChatCopied ? (
-                      <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
                     ) : currentChatShared ? (
                       <Shield className="w-4 h-4 mr-2 text-blue-600" />
                     ) : (
                       <Share2 className="w-4 h-4 mr-2" />
                     )}
-                    {currentChatCopied
-                      ? "Copied!"
-                      : currentChatShared
-                      ? "Shared Chat"
-                      : "Share Chat"}
+                    {currentChatShared ? "Shared Chat" : "Share Chat"}
                   </DropdownMenuItem>
+
+                  {/* Copy Link - only show when chat is shared */}
+                  {currentChatShared && (
+                    <DropdownMenuItem onSelect={copySharedChatLink}>
+                      {currentChatCopied ? (
+                        <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                      ) : (
+                        <Copy className="w-4 h-4 mr-2" />
+                      )}
+                      {currentChatCopied ? "Copied!" : "Copy Link"}
+                    </DropdownMenuItem>
+                  )}
                 </>
               )}
             </DropdownMenuContent>

@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useSharingStatus } from "./sharingstatus";
 import { useToast } from "@/components/ui/toast";
+import { smartTruncate } from "@/lib/utils";
 
 interface ChatSession {
   id: string;
@@ -118,6 +119,28 @@ export default function ChatHistoryDialog({
           setSessions(newSessions);
         } else {
           setSessions((prev) => [...prev, ...newSessions]);
+        } // Initialize sharing status for shared sessions
+        const sharedSessions = newSessions.filter(
+          (session: ChatSession) => session.isShared && session.shareToken
+        );
+        if (sharedSessions.length > 0) {
+          const newSharingStatus: Record<
+            string,
+            { loading: boolean; copied: boolean; shareUrl?: string }
+          > = {};
+          sharedSessions.forEach((session: ChatSession) => {
+            if (session.shareToken) {
+              newSharingStatus[session.id] = {
+                loading: false,
+                copied: false,
+                shareUrl: `${window.location.origin}/shared-chat/${session.shareToken}`,
+              };
+            }
+          });
+
+          setSharingStatus((prev) =>
+            reset ? newSharingStatus : { ...prev, ...newSharingStatus }
+          );
         }
 
         // Check if there are more sessions to load
@@ -264,7 +287,7 @@ export default function ChatHistoryDialog({
         .reverse()
         .find((m) => m.role === "user");
       if (lastUserMessage) {
-        return lastUserMessage.content.slice(0, 60) + "...";
+        return smartTruncate(lastUserMessage.content, 60);
       }
     }
     return "No messages yet";

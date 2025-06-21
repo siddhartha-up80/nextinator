@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { cn, smartTruncate } from "@/lib/utils";
 import { useChat } from "@ai-sdk/react";
 import {
   Bot,
@@ -120,13 +120,11 @@ export default function AIChatbox({
           setCurrentSessionId(result.sessionId);
           onSessionChange?.(result.sessionId);
           isCreatingSession.current = false; // Reset the flag
-        }
-
-        // Auto-generate title from first user message if still "New Chat"
+        } // Auto-generate title from first user message if still "New Chat"
         if (sessionTitle === "New Chat" && messages.length > 0) {
           const firstUserMessage = messages.find((m) => m.role === "user");
           if (firstUserMessage) {
-            const newTitle = firstUserMessage.content.slice(0, 50) + "...";
+            const newTitle = smartTruncate(firstUserMessage.content, 50);
             setSessionTitle(newTitle);
 
             // Update session title in database
