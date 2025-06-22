@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid input" }, { status: 400 });
     }
 
-    const { title, content } = parseResult.data;
+    const { title, content, groupId } = parseResult.data;
 
     // Extract additional fields for PDF uploads
     const sourceType = body.sourceType || "text";
@@ -74,6 +74,7 @@ export async function POST(req: Request) {
             title,
             content,
             userId,
+            groupId: groupId || null,
           },
         });
 
@@ -182,7 +183,7 @@ export async function PUT(req: Request) {
       return Response.json({ error: "Invalid input" }, { status: 400 });
     }
 
-    const { id, title, content } = parseResult.data;
+    const { id, title, content, groupId } = parseResult.data;
 
     const note = await prisma.note.findUnique({ where: { id } });
 
@@ -223,6 +224,7 @@ export async function PUT(req: Request) {
           data: {
             title,
             content,
+            groupId: groupId || null,
           },
         });
 
@@ -364,16 +366,14 @@ export async function GET(request: Request) {
     if (!userId) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
-
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = parseInt(url.searchParams.get("limit") || "12");
     const search = url.searchParams.get("search") || "";
+    const groupId = url.searchParams.get("groupId") || "";
 
-    const skip = (page - 1) * limit;
-
-    // Build where clause for search
-    const whereClause = {
+    const skip = (page - 1) * limit; // Build where clause for search and group filter
+    const whereClause: any = {
       userId,
       ...(search && {
         OR: [
@@ -381,16 +381,32 @@ export async function GET(request: Request) {
           { content: { contains: search, mode: "insensitive" as const } },
         ],
       }),
-    };
+    }; // Handle group filtering
+    if (groupId) {
+      if (groupId === "ungrouped") {
+        // For MongoDB, query for both null and undefined/missing groupId
+        whereClause.OR = [{ groupId: null }, { groupId: undefined }];
+        delete whereClause.groupId; // Remove the direct groupId field
+      } else {
+        whereClause.groupId = groupId;
+      }
+    }
 
     // Get total count for pagination
     const totalCount = await prisma.note.count({
       where: whereClause,
-    });
-
-    // Get paginated notes
+    }); // Get paginated notes
     const notes = await prisma.note.findMany({
       where: whereClause,
+      include: {
+        group: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+          },
+        },
+      },
       orderBy: { updatedAt: "desc" },
       skip,
       take: limit,

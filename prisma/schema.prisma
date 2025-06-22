@@ -14,13 +14,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Group {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  color     String   @default("#6366f1") // Default indigo color
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationship to notes
+  notes Note[]
+
+  @@unique([userId, name]) // Ensure unique group names per user
+  @@map("groups")
+}
+
 model Note {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   title     String
   content   String?
   userId    String
+  groupId   String?  @db.ObjectId // Optional group association
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relationship to group
+  group Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   // Relationship to note chunks
   chunks NoteChunk[]

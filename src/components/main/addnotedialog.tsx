@@ -22,8 +22,8 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import LoadingButton from "./loadingbutton";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { CheckCircle, Copy, Trash, FileText, Upload } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CheckCircle, Copy, Trash, FileText, Upload, Plus } from "lucide-react";
 import { Button } from "../ui/button";
 import { useToast } from "@/components/ui/toast";
 import pdfToText from "react-pdftotext";
@@ -33,6 +33,15 @@ interface AddnotedialogProps {
   setOpen: (open: boolean) => void;
   noteToEdit?: any;
   onSuccess?: () => void;
+}
+
+interface Group {
+  id: string;
+  name: string;
+  color: string;
+  _count: {
+    notes: number;
+  };
 }
 
 const Addnotedialog = ({
@@ -47,6 +56,10 @@ const Addnotedialog = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadInProgress, setUploadInProgress] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [showNewGroupInput, setShowNewGroupInput] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
   const { showToast } = useToast();
   const handleCopy = (content: any) => {
     navigator.clipboard
@@ -68,8 +81,58 @@ const Addnotedialog = ({
     defaultValues: {
       title: noteToEdit?.title || "",
       content: noteToEdit?.content || "",
+      groupId: noteToEdit?.groupId || "",
     },
   });
+
+  // Fetch groups when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchGroups();
+    }
+  }, [open]);
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch("/api/groups");
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(data.groups);
+      }
+    } catch (error) {
+      console.error("Failed to fetch groups:", error);
+    }
+  };
+
+  const createGroup = async () => {
+    if (!newGroupName.trim()) return;
+
+    setCreatingGroup(true);
+    try {
+      const response = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newGroupName.trim() }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGroups([...groups, data.group]);
+        form.setValue("groupId", data.group.id);
+        setNewGroupName("");
+        setShowNewGroupInput(false);
+        showToast("Group created successfully!", "success");
+      } else {
+        const error = await response.json();
+        showToast(error.error || "Failed to create group", "error");
+      }
+    } catch (error) {
+      console.error("Failed to create group:", error);
+      showToast("Failed to create group", "error");
+    } finally {
+      setCreatingGroup(false);
+    }
+  };
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -91,7 +154,11 @@ const Addnotedialog = ({
       showToast("PDF file selected successfully", "success");
     }
   };
-  async function processPDFAndUpload(title: string, file: File) {
+  async function processPDFAndUpload(
+    title: string,
+    file: File,
+    groupId?: string
+  ) {
     try {
       setUploadStatus("Extracting text from PDF...");
 
@@ -116,6 +183,7 @@ const Addnotedialog = ({
           content: extractedText,
           sourceType: "pdf",
           fileName: file.name,
+          groupId: groupId || null,
         }),
       });
 
@@ -150,7 +218,7 @@ const Addnotedialog = ({
     try {
       if (uploadMode === "pdf" && selectedFile) {
         setUploadInProgress(true);
-        await processPDFAndUpload(input.title, selectedFile);
+        await processPDFAndUpload(input.title, selectedFile, input.groupId);
         setSelectedFile(null);
         form.reset();
         showToast("Note created from PDF successfully!", "success");
@@ -262,6 +330,7 @@ const Addnotedialog = ({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+            {" "}
             <FormField
               control={form.control}
               name="title"
@@ -270,6 +339,74 @@ const Addnotedialog = ({
                   <FormLabel>Data Title</FormLabel>
                   <FormControl>
                     <Input placeholder="Add title for your data" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="groupId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Group (Optional)</FormLabel>
+                  <FormControl>
+                    <div className="space-y-2">
+                      <select
+                        {...field}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-background text-foreground"
+                      >
+                        <option value="">No Group</option>
+                        {groups.map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.name} ({group._count.notes} notes)
+                          </option>
+                        ))}
+                      </select>
+
+                      {!showNewGroupInput ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowNewGroupInput(true)}
+                          className="w-full"
+                        >
+                          <Plus size={16} className="mr-2" />
+                          Create New Group
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Group name"
+                            value={newGroupName}
+                            onChange={(e) => setNewGroupName(e.target.value)}
+                            onKeyPress={(e) =>
+                              e.key === "Enter" && createGroup()
+                            }
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={createGroup}
+                            disabled={!newGroupName.trim() || creatingGroup}
+                          >
+                            {creatingGroup ? "..." : "Create"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setShowNewGroupInput(false);
+                              setNewGroupName("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

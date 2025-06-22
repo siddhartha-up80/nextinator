@@ -45,10 +45,9 @@ export function Toast({
         return "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800";
     }
   };
-
   return (
     <div
-      className={`fixed top-4 right-4 z-50 flex items-center space-x-2 px-4 py-3 rounded-lg border shadow-lg ${getBgColor()}`}
+      className={`fixed bottom-4 right-4 z-50 flex items-center space-x-2 px-4 py-3 rounded-lg border shadow-lg ${getBgColor()}`}
     >
       {getIcon()}
       <span className="font-medium">{message}</span>{" "}
