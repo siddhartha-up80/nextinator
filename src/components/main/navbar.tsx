@@ -44,10 +44,12 @@ import { useToast } from "@/components/ui/toast";
 
 const Navbar = ({
   allNotes,
+  groups,
   onSelectChat,
   currentSessionId,
 }: {
   allNotes: any;
+  groups: any;
   onSelectChat?: (sessionId: string) => void;
   currentSessionId?: string;
 }) => {
@@ -223,7 +225,7 @@ const Navbar = ({
               </Button>
             </SheetTrigger>
             <SheetContent side={"left"}>
-              <Sidebar allNotes={allNotes} />
+              <Sidebar allNotes={allNotes} groups={groups} />
             </SheetContent>
           </Sheet>
         </div>

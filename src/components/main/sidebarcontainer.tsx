@@ -12,9 +12,29 @@ const SidebarContainer = async ({ children }: SidebarContainerProps) => {
 
   if (!userId) throw Error("userId undefined");
 
-  const allNotes = await prisma?.note.findMany({ where: { userId } });
+  const allNotes = await prisma?.note.findMany({
+    where: { userId },
+    include: {
+      group: true,
+    },
+  });
 
-  return <ClientSidebarContainer allNotes={allNotes} children={children} />;
+  const groups = await prisma?.group.findMany({
+    where: { userId },
+    include: {
+      _count: {
+        select: { notes: true },
+      },
+    },
+  });
+
+  return (
+    <ClientSidebarContainer
+      allNotes={allNotes}
+      groups={groups}
+      children={children}
+    />
+  );
 };
 
 export default SidebarContainer;

@@ -24,11 +24,13 @@ export const useChatSession = () => {
 
 interface ClientSidebarContainerProps {
   allNotes: any[];
+  groups: any[];
   children?: React.ReactNode;
 }
 
 const ClientSidebarContainer = ({
   allNotes,
+  groups,
   children,
 }: ClientSidebarContainerProps) => {
   const [currentSessionId, setCurrentSessionId] = useState<
@@ -48,14 +50,16 @@ const ClientSidebarContainer = ({
       >
         <div>
           <div>
+            {" "}
             <Navbar
               allNotes={allNotes}
+              groups={groups}
               onSelectChat={handleSelectChat}
               currentSessionId={currentSessionId}
             />
-          </div>
+          </div>{" "}
           <div className="hidden md:block">
-            <Sidebar allNotes={allNotes} />
+            <Sidebar allNotes={allNotes} groups={groups} />
           </div>
           {children && (
             <div className="md:ml-[270px] md:mt-14 mt-20 p-4 md:p-0">

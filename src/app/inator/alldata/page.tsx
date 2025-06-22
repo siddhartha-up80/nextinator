@@ -7,7 +7,16 @@ import { Note as NoteModel } from "@prisma/client";
 import Note from "@/components/main/note";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2, FolderIcon, Grid, List, Plus } from "lucide-react";
+import {
+  Search,
+  Loader2,
+  FolderIcon,
+  Grid,
+  List,
+  Plus,
+  Settings,
+} from "lucide-react";
+import GroupManagementDialog from "@/components/main/groupmanagementdialog";
 
 interface Group {
   id: string;
@@ -50,6 +59,7 @@ const Page = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [viewMode, setViewMode] = useState<"all" | "grouped">("grouped");
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout>();
+  const [showGroupManagement, setShowGroupManagement] = useState(false);
 
   const NOTES_PER_PAGE = 9;
 
@@ -126,6 +136,12 @@ const Page = () => {
       console.error("Failed to fetch groups:", error);
     }
   }, [user]);
+
+  const handleGroupsUpdate = useCallback(() => {
+    fetchGroups();
+    // Also refresh notes to get updated group information
+    fetchNotes(1, search, selectedGroupId, true);
+  }, [fetchGroups, fetchNotes, search, selectedGroupId]);
   // Initial load
   useEffect(() => {
     if (isLoaded && user) {
@@ -279,7 +295,15 @@ const Page = () => {
           {/* Group Filter (only show when in grouped mode and no specific group selected) */}
           {viewMode === "grouped" && !selectedGroupId && (
             <div className="flex gap-2 items-center">
-              {" "}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowGroupManagement(true)}
+                className="flex items-center gap-2"
+              >
+                <Settings size={16} />
+                Manage Groups
+              </Button>
               <select
                 value={selectedGroupId}
                 onChange={(e) => setSelectedGroupId(e.target.value)}
@@ -317,6 +341,13 @@ const Page = () => {
           <span className="ml-2">Loading notes...</span>
         </div>
       )}
+      {/* Group Management Dialog */}
+      <GroupManagementDialog
+        open={showGroupManagement}
+        setOpen={setShowGroupManagement}
+        groups={groups}
+        onGroupsUpdate={handleGroupsUpdate}
+      />
     </div>
   );
 };
@@ -413,12 +444,28 @@ const GroupSection = ({
   loading: boolean;
   onViewAll: () => void;
 }) => {
+  const getColorClass = (color: string) => {
+    const colorMap: { [key: string]: string } = {
+      "#6366f1": "bg-indigo-500",
+      "#8b5cf6": "bg-violet-500",
+      "#06b6d4": "bg-cyan-500",
+      "#10b981": "bg-emerald-500",
+      "#f59e0b": "bg-amber-500",
+      "#ef4444": "bg-red-500",
+      "#ec4899": "bg-pink-500",
+      "#84cc16": "bg-lime-500",
+      "#6b7280": "bg-gray-500",
+      "#1f2937": "bg-gray-800",
+    };
+    return colorMap[color] || "bg-gray-500";
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         {" "}
         <div className="flex items-center gap-3">
-          <div className={`w-4 h-4 rounded-full bg-indigo-500`} />
+          <div className={`w-4 h-4 rounded-full ${getColorClass(color)}`} />
           <h2 className="text-xl font-semibold">
             {title} {count !== undefined && `(${count})`}
           </h2>
