@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/db/prisma";
+import { createChatSessionWithUniqueToken } from "@/lib/chat-utils";
 
 // POST /api/chat-messages - Save messages to a chat session
 export async function POST(request: NextRequest) {
@@ -42,11 +43,9 @@ export async function POST(request: NextRequest) {
         actualSessionId = recentEmptySession.id;
       } else {
         // Create new session only if no empty one exists
-        const newSession = await prisma.chatSession.create({
-          data: {
-            title: "New Chat",
-            userId,
-          },
+        const newSession = await createChatSessionWithUniqueToken({
+          title: "New Chat",
+          userId,
         });
         actualSessionId = newSession.id;
       }

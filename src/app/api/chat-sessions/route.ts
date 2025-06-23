@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/db/prisma";
+import { createChatSessionWithUniqueToken } from "@/lib/chat-utils";
 
 // GET /api/chat-sessions - Get all chat sessions for the user with pagination
 export async function GET(request: NextRequest) {
@@ -73,14 +74,11 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
     const { title } = await request.json();
 
-    const session = await prisma.chatSession.create({
-      data: {
-        title: title || "New Chat",
-        userId,
-      },
+    const session = await createChatSessionWithUniqueToken({
+      title: title || "New Chat",
+      userId,
     });
 
     return NextResponse.json(session);
