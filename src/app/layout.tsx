@@ -4,6 +4,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "./ThemeProvider";
 import { ToastProvider } from "@/components/ui/toast";
+import { ChatHistoryProvider } from "@/contexts/ChatHistoryContext";
 import "@/lib/polyfills";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -27,10 +28,12 @@ export default function RootLayout({
             name="google-site-verification"
             content="wuKkVFD1dhs31EjQNk81yBbw-temshhMPPc8JGAUC94"
           />
-        </head>
+        </head>{" "}
         <body className={inter.className}>
           <ToastProvider>
-            <ThemeProvider attribute="class">{children}</ThemeProvider>
+            <ThemeProvider attribute="class">
+              <ChatHistoryProvider>{children}</ChatHistoryProvider>
+            </ThemeProvider>
           </ToastProvider>
         </body>
       </html>

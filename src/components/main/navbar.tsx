@@ -37,7 +37,7 @@ import {
 import Sidebar from "./sidebar";
 import { Button } from "../ui/button";
 import Addnotedialog from "./addnotedialog";
-import ChatHistoryDialog from "./chathistorydialog";
+import OptimizedChatHistoryDialog from "./optimizedchathistorydialog";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useSharingStatus } from "./sharingstatus";
 import { useToast } from "@/components/ui/toast";
@@ -250,9 +250,9 @@ const Navbar = ({
       <div className="flex items-center gap-2">
         {/* Desktop actions - show all buttons */}
         <div className="hidden md:flex items-center gap-2">
-          <ThemeToggleButton />
+          <ThemeToggleButton />{" "}
           {onSelectChat && (
-            <ChatHistoryDialog
+            <OptimizedChatHistoryDialog
               onSelectChat={onSelectChat}
               currentSessionId={currentSessionId}
             />
@@ -397,9 +397,9 @@ const Navbar = ({
       </div>{" "}
       {/* Dialogs */}
       <Addnotedialog open={showAddNoteDialog} setOpen={setShowNoteDialog} />
-      {/* Mobile Chat History Dialog - only render when mobile dropdown is used */}
+      {/* Mobile Chat History Dialog - only render when mobile dropdown is used */}{" "}
       {onSelectChat && showChatHistoryDialog && (
-        <ChatHistoryDialog
+        <OptimizedChatHistoryDialog
           onSelectChat={(sessionId) => {
             onSelectChat(sessionId);
             setShowChatHistoryDialog(false);
