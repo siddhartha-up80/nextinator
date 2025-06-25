@@ -18,6 +18,7 @@ import {
   Shield,
   MoreVertical,
   History,
+  Settings,
 } from "lucide-react";
 import {
   Sheet,
@@ -41,6 +42,7 @@ import OptimizedChatHistoryDialog from "./optimizedchathistorydialog";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useSharingStatus } from "./sharingstatus";
 import { useToast } from "@/components/ui/toast";
+import SettingsDialog from "./settingsdialog";
 
 const Navbar = ({
   allNotes,
@@ -55,6 +57,7 @@ const Navbar = ({
 }) => {
   const [showAddNoteDialog, setShowNoteDialog] = useState(false);
   const [showChatHistoryDialog, setShowChatHistoryDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [sharingCurrentChat, setSharingCurrentChat] = useState(false);
   const [currentChatShared, setCurrentChatShared] = useState(false);
   const [currentChatCopied, setCurrentChatCopied] = useState(false);
@@ -250,7 +253,7 @@ const Navbar = ({
       <div className="flex items-center gap-2">
         {/* Desktop actions - show all buttons */}
         <div className="hidden md:flex items-center gap-2">
-          <ThemeToggleButton />{" "}
+          <ThemeToggleButton />
           {onSelectChat && (
             <OptimizedChatHistoryDialog
               onSelectChat={onSelectChat}
@@ -308,6 +311,7 @@ const Navbar = ({
             <Notebook size={18} />
             <span>Add Data</span>
           </Button>
+          <SettingsDialog />
         </div>{" "}
         {/* Mobile actions - dropdown menu for secondary actions */}
         <div className="md:hidden flex items-center gap-2">
@@ -329,6 +333,12 @@ const Navbar = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              {/* Settings */}
+              <DropdownMenuItem onSelect={() => setShowSettingsDialog(true)}>
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               {/* Theme Toggle */}
               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                 <div className="flex items-center justify-between w-full">
@@ -397,6 +407,13 @@ const Navbar = ({
       </div>{" "}
       {/* Dialogs */}
       <Addnotedialog open={showAddNoteDialog} setOpen={setShowNoteDialog} />
+      {/* Mobile Settings Dialog - only render when mobile dropdown triggers it */}
+      {showSettingsDialog && (
+        <SettingsDialog
+          open={showSettingsDialog}
+          onOpenChange={setShowSettingsDialog}
+        />
+      )}
       {/* Mobile Chat History Dialog - only render when mobile dropdown is used */}{" "}
       {onSelectChat && showChatHistoryDialog && (
         <OptimizedChatHistoryDialog

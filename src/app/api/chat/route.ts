@@ -16,13 +16,16 @@ export async function POST(req: Request): Promise<Response> {
     console.log("💬 Chat API called");
 
     const body = await req.json();
-    const { messages } = body;
+    const { messages, settings } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return Response.json({ error: "Messages are required" }, { status: 400 });
     }
 
     console.log("💬 Processing", messages.length, "messages");
+    if (settings?.responseType) {
+      console.log("💬 Response type:", settings.responseType);
+    }
 
     // Get the last 4 messages for context
     const messageTruncated = messages.slice(-4);
@@ -70,14 +73,24 @@ export async function POST(req: Request): Promise<Response> {
     console.log("💬 Processing", relevantChunks.length, "relevant chunks");
 
     // Create system message with context
+    const baseSystemPrompt =
+      "You are an intelligent custom data assistant powered by Google Gemini. " +
+      "Answer the user's questions based on their existing custom data. " +
+      "Use simple, conversational language that's easy to understand." +
+      "If there's no relevant information in the notes or if the notes are empty, " +
+      "you can respond with your general knowledge.";
+
+    // Add response type instruction if provided
+    const responseTypeInstruction = settings?.responseType
+      ? ` Give answers in ${settings.responseType} length format.`
+      : "";
+
     const systemMessage = {
       role: "system" as const,
       content:
-        "You are an intelligent custom data assistant powered by Google Gemini. " +
-          "Answer the user's questions based on their existing custom data. " +
-          "Use simple, conversational language that's easy to understand, but always give detailed answers utilizing all relevant notes. " +
-          "If there's no relevant information in the notes or if the notes are empty, " +
-          "you can respond with your general knowledge.\n\n" +
+        baseSystemPrompt +
+          responseTypeInstruction +
+          "\n\n" +
           "Relevant data for this query:\n" +
           relevantChunks
             .map((chunk) => {

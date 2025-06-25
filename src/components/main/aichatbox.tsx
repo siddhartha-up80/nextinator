@@ -20,6 +20,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./markdown.css";
 import { useToast } from "@/components/ui/toast";
+import { useChatSettings } from "./settingsdialog";
 
 interface AIChatboxProps {
   open?: boolean;
@@ -34,6 +35,10 @@ export default function AIChatbox({
   sessionId,
   onSessionChange,
 }: AIChatboxProps) {
+  const settings = useChatSettings();
+  const [chatKey, setChatKey] = useState(0);
+  const [preservedMessages, setPreservedMessages] = useState<Message[]>([]);
+
   const {
     messages,
     input,
@@ -42,7 +47,29 @@ export default function AIChatbox({
     setMessages,
     isLoading,
     error,
-  } = useChat();
+  } = useChat({
+    api: "/api/chat",
+    body: {
+      settings,
+    },
+    id: `chat-${chatKey}`, // This forces a new chat instance when settings change
+  });
+
+  // Preserve messages when settings change and force chat to reinitialize
+  useEffect(() => {
+    if (messages.length > 0) {
+      setPreservedMessages([...messages]);
+    }
+    setChatKey((prev) => prev + 1);
+  }, [settings.responseType]);
+
+  // Restore preserved messages after chat reinitializes
+  useEffect(() => {
+    if (preservedMessages.length > 0 && messages.length === 0) {
+      setMessages(preservedMessages);
+      setPreservedMessages([]);
+    }
+  }, [chatKey, messages, preservedMessages, setMessages]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(
     sessionId || null
   );
