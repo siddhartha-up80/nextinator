@@ -43,7 +43,7 @@ export default function SettingsDialog({
 }: SettingsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [settings, setSettings] = useState<ChatSettings>({
-    responseType: "medium", // Default value
+    responseType: "detailed", // Default value
   });
   const { showToast } = useToast();
 
