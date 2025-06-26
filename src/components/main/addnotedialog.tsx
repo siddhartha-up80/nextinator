@@ -297,7 +297,7 @@ const Addnotedialog = ({
         }
       }}
     >
-      <DialogContent className="min-w-[60vw] max-h-[90vh]">
+      <DialogContent className="min-w-[60vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{noteToEdit ? "Edit Data" : "Add Data"}</DialogTitle>
         </DialogHeader>
