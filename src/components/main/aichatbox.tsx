@@ -62,7 +62,7 @@ export default function AIChatbox({
       setPreservedMessages([...messages]);
     }
     setChatKey((prev) => prev + 1);
-  }, [settings.responseType]);
+  }, [settings.responseType, settings.customPrompt]);
 
   // Restore preserved messages after chat reinitializes
   useEffect(() => {

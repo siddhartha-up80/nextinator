@@ -16,7 +16,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Settings, ChevronDown } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Settings, ChevronDown, RotateCcw } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 
 interface SettingsDialogProps {
@@ -27,6 +28,7 @@ interface SettingsDialogProps {
 
 export interface ChatSettings {
   responseType: "very short" | "short" | "medium" | "detailed";
+  customPrompt?: string;
 }
 
 const responseTypeOptions = [
@@ -36,6 +38,13 @@ const responseTypeOptions = [
   { value: "detailed", label: "Detailed" },
 ] as const;
 
+const DEFAULT_SYSTEM_PROMPT =
+  "You are an intelligent custom data assistant powered by Google Gemini. " +
+  "Answer the user's questions based on their existing custom data. " +
+  "Use simple, conversational language that's easy to understand. " +
+  "If there's no relevant information in the notes or if the notes are empty, " +
+  "you can respond with your general knowledge.";
+
 export default function SettingsDialog({
   onSettingsChange,
   open,
@@ -44,6 +53,7 @@ export default function SettingsDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [settings, setSettings] = useState<ChatSettings>({
     responseType: "detailed", // Default value
+    customPrompt: DEFAULT_SYSTEM_PROMPT,
   });
   const { showToast } = useToast();
 
@@ -57,8 +67,13 @@ export default function SettingsDialog({
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings);
-        setSettings(parsedSettings);
-        onSettingsChange?.(parsedSettings);
+        // Ensure customPrompt has a default value if not present
+        const settingsWithDefaults = {
+          ...parsedSettings,
+          customPrompt: parsedSettings.customPrompt || DEFAULT_SYSTEM_PROMPT,
+        };
+        setSettings(settingsWithDefaults);
+        onSettingsChange?.(settingsWithDefaults);
       } catch (error) {
         console.error("Failed to load settings:", error);
       }
@@ -90,6 +105,15 @@ export default function SettingsDialog({
     responseType: ChatSettings["responseType"]
   ) => {
     updateSettings({ responseType });
+  };
+
+  const handleCustomPromptChange = (customPrompt: string) => {
+    updateSettings({ customPrompt });
+  };
+
+  const handleResetPrompt = () => {
+    updateSettings({ customPrompt: DEFAULT_SYSTEM_PROMPT });
+    showToast("Prompt reset to default", "success");
   };
 
   return (
@@ -144,15 +168,31 @@ export default function SettingsDialog({
             </DropdownMenu>
           </div>
 
-          {/* Placeholder for future settings */}
+          {/* Custom Prompt Setting */}
           <div className="grid gap-2">
-            <label className="text-sm font-medium leading-none text-muted-foreground">
-              More Settings Coming Soon
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Custom AI Prompt
+              </label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetPrompt}
+                className="h-8 px-2"
+              >
+                <RotateCcw className="w-3 h-3 mr-1" />
+                Reset
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground">
-              Additional customization options will be available here in future
-              updates.
+              Customize how the AI behaves and responds to your questions.
             </p>
+            <Textarea
+              value={settings.customPrompt || DEFAULT_SYSTEM_PROMPT}
+              onChange={(e) => handleCustomPromptChange(e.target.value)}
+              placeholder="Enter your custom AI prompt..."
+              className="min-h-[120px] resize-none"
+            />
           </div>
         </div>
       </DialogContent>
@@ -164,6 +204,7 @@ export default function SettingsDialog({
 export function useChatSettings() {
   const [settings, setSettings] = useState<ChatSettings>({
     responseType: "medium",
+    customPrompt: DEFAULT_SYSTEM_PROMPT,
   });
 
   useEffect(() => {
@@ -172,7 +213,13 @@ export function useChatSettings() {
       const savedSettings = localStorage.getItem("aiChatSettings");
       if (savedSettings) {
         try {
-          setSettings(JSON.parse(savedSettings));
+          const parsedSettings = JSON.parse(savedSettings);
+          // Ensure customPrompt has a default value if not present
+          const settingsWithDefaults = {
+            ...parsedSettings,
+            customPrompt: parsedSettings.customPrompt || DEFAULT_SYSTEM_PROMPT,
+          };
+          setSettings(settingsWithDefaults);
         } catch (error) {
           console.error("Failed to load settings:", error);
         }
@@ -185,7 +232,12 @@ export function useChatSettings() {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "aiChatSettings" && e.newValue) {
         try {
-          setSettings(JSON.parse(e.newValue));
+          const parsedSettings = JSON.parse(e.newValue);
+          const settingsWithDefaults = {
+            ...parsedSettings,
+            customPrompt: parsedSettings.customPrompt || DEFAULT_SYSTEM_PROMPT,
+          };
+          setSettings(settingsWithDefaults);
         } catch (error) {
           console.error("Failed to parse updated settings:", error);
         }

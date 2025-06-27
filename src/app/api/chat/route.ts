@@ -74,11 +74,12 @@ export async function POST(req: Request): Promise<Response> {
 
     // Create system message with context
     const baseSystemPrompt =
+      settings?.customPrompt ||
       "You are an intelligent custom data assistant powered by Google Gemini. " +
-      "Answer the user's questions based on their existing custom data. " +
-      "Use simple, conversational language that's easy to understand." +
-      "If there's no relevant information in the notes or if the notes are empty, " +
-      "you can respond with your general knowledge.";
+        "Answer the user's questions based on their existing custom data. " +
+        "Use simple, conversational language that's easy to understand." +
+        "If there's no relevant information in the notes or if the notes are empty, " +
+        "you can respond with your general knowledge.";
 
     // Add response type instruction if provided
     const responseTypeInstruction = settings?.responseType
