@@ -12,6 +12,7 @@ import {
   Search,
   FileText,
   Eye,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -50,6 +51,18 @@ const Inator = () => {
   const [loadingChats, setLoadingChats] = useState(true);
   const [totalChats, setTotalChats] = useState(0);
   const [sharedChats, setSharedChats] = useState(0);
+  const [intelligentTasks, setIntelligentTasks] = useState<any[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [lastTasksUpdate, setLastTasksUpdate] = useState<string>("");
+  const [taskQuery, setTaskQuery] = useState(
+    "personal tasks, appointments, deadlines, errands, reminders, action items, follow-ups, upcomming events, movie recommendations, book suggestions, travel plans, home improvement tasks, fitness goals, learning objectives, project deadlines, work assignments, personal projects, hobbies, and interests, movie, releasing, upcoming, tv shows, series, anime, manga, books, music, podcasts, games, travel plans, home improvement tasks, fitness goals, learning objectives, project deadlines, work assignments, personal projects, hobbies, and interests, exams."
+  );
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const [lastAutoFetchDate, setLastAutoFetchDate] = useState<string>("");
+  const [debounceTimeout, setDebounceTimeout] = useState<NodeJS.Timeout | null>(
+    null
+  );
+  const [isRateLimited, setIsRateLimited] = useState(false);
   const router = useRouter();
   const { user } = useUser();
 
@@ -104,11 +117,147 @@ const Inator = () => {
     }
   };
 
+  // Fetch intelligent tasks from notes with rate limiting
+  const fetchIntelligentTasks = async (
+    customQuery?: string,
+    isManualRefresh = false
+  ) => {
+    const now = Date.now();
+    const today = new Date().toDateString();
+    const timeSinceLastFetch = now - lastFetchTime;
+    const minInterval = 2000; // Minimum 2 seconds between requests
+
+    // If already loading, don't trigger another request
+    if (loadingTasks) {
+      return;
+    }
+
+    // Check if this is an auto-refresh and we've already fetched today
+    if (!isManualRefresh && !customQuery && lastAutoFetchDate === today) {
+      return; // Skip auto-refresh if already done today
+    }
+
+    // For manual refresh, allow immediate execution
+    if (isManualRefresh) {
+      setIsRateLimited(false);
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
+        setDebounceTimeout(null);
+      }
+      fetchIntelligentTasksInternal(customQuery, true);
+      return;
+    }
+
+    // If too soon since last request for non-manual requests, debounce it
+    if (timeSinceLastFetch < minInterval) {
+      setIsRateLimited(true);
+
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
+      }
+
+      const newTimeout = setTimeout(() => {
+        setIsRateLimited(false);
+        fetchIntelligentTasksInternal(customQuery, false);
+      }, minInterval - timeSinceLastFetch);
+
+      setDebounceTimeout(newTimeout);
+      return;
+    }
+
+    // Clear any existing timeout
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+      setDebounceTimeout(null);
+    }
+
+    setIsRateLimited(false);
+    fetchIntelligentTasksInternal(customQuery, false);
+  };
+
+  // Internal function to actually fetch the tasks
+  const fetchIntelligentTasksInternal = async (
+    customQuery?: string,
+    isManualRefresh = false
+  ) => {
+    try {
+      setLoadingTasks(true);
+      setLastFetchTime(Date.now());
+
+      // Update auto-fetch date if this is the first fetch of the day
+      if (!customQuery && !isManualRefresh) {
+        setLastAutoFetchDate(new Date().toDateString());
+      }
+
+      const response = await fetch("/api/intelligent-tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: customQuery || taskQuery,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIntelligentTasks(data.tasks || []);
+        setLastTasksUpdate(
+          new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        );
+      } else if (response.status === 429) {
+        // Rate limited by server
+        const errorData = await response.json();
+        setIntelligentTasks([
+          {
+            task: "Rate limit exceeded",
+            priority: "low",
+            insights:
+              errorData.error || "Please wait before making another request.",
+            category: "system",
+          },
+        ]);
+        // Set rate limited state for UI feedback
+        setIsRateLimited(true);
+        setTimeout(() => setIsRateLimited(false), errorData.retryAfter || 2000);
+      } else {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Error fetching intelligent tasks:", error);
+      // Set fallback tasks
+      setIntelligentTasks([
+        {
+          task: "Unable to fetch insights at the moment",
+          priority: "low",
+          insights:
+            "Please try again in a moment. If the issue persists, check your internet connection.",
+          category: "system",
+        },
+      ]);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
   useEffect(() => {
     fetchLatestNotes();
     fetchLatestChats();
     fetchChatStats();
+    fetchIntelligentTasks();
   }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
+      }
+    };
+  }, [debounceTimeout]);
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
@@ -164,6 +313,7 @@ const Inator = () => {
 
   const handleNoteEditSuccess = () => {
     fetchLatestNotes(); // Refetch notes after editing
+    fetchIntelligentTasks(undefined, false); // Refetch tasks as notes have changed (not manual refresh)
   };
 
   // Function to get varied character limits for different visual heights
@@ -456,7 +606,7 @@ const Inator = () => {
             <div className="text-center">
               <FileText className="w-12 h-12 text-blue-500 mx-auto mb-2" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                Total Notes
+                Total Data
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 {notes.length} notes created
@@ -484,58 +634,205 @@ const Inator = () => {
         </Card>
       </div>
 
-      {/* Upcoming Tasks */}
+      {/* AI-Powered Smart Insights */}
       <div className="mt-8">
-        <Card className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <Calendar className="w-5 h-5 mr-2" />
-            Upcoming Tasks
+        <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center justify-between">
+            <div className="flex items-center">
+              <Zap className="w-5 h-5 mr-2 text-purple-600" />
+              Smart Insights
+              <span className="ml-2 px-2 py-1 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+                Powered by your notes
+              </span>
+              {lastTasksUpdate && (
+                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                  • Updated {lastTasksUpdate}
+                </span>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fetchIntelligentTasks(undefined, true)}
+              disabled={loadingTasks}
+              className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/30"
+              title="Refresh insights (instant)"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${loadingTasks ? "animate-spin" : ""}`}
+              />
+            </Button>
           </h2>
-          <div className="space-y-3">
-            {[
-              {
-                task: "Review quarterly data analysis",
-                due: "Today, 3:00 PM",
-                priority: "high",
-              },
-              {
-                task: "Update project documentation",
-                due: "Tomorrow, 10:00 AM",
-                priority: "medium",
-              },
-              {
-                task: "Team meeting preparation",
-                due: "Friday, 2:00 PM",
-                priority: "low",
-              },
-            ].map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-              >
-                <div className="flex items-center space-x-3">
+
+          {loadingTasks ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center space-x-3 p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg animate-pulse"
+                >
+                  <div className="w-3 h-3 bg-gray-200 dark:bg-gray-600 rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded mb-2"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded w-2/3"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : intelligentTasks.length > 0 ? (
+            <div className="space-y-3">
+              {intelligentTasks.slice(0, 5).map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-start space-x-3 p-4 bg-white/70 dark:bg-gray-800/70 rounded-lg border border-white/50 dark:border-gray-700/50 hover:bg-white/90 dark:hover:bg-gray-800/90 transition-all duration-200"
+                >
                   <div
-                    className={`w-3 h-3 rounded-full ${
+                    className={`w-3 h-3 rounded-full mt-2 flex-shrink-0 ${
                       item.priority === "high"
                         ? "bg-red-500"
                         : item.priority === "medium"
-                        ? "bg-red-500"
+                        ? "bg-yellow-500"
                         : "bg-green-500"
                     }`}
                   />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
                       {item.task}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {item.due}
-                    </p>
+                    {item.insights && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                        💡 {item.insights}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      {item.category && (
+                        <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+                          {item.category}
+                        </span>
+                      )}
+                      {item.source && item.source !== "system" && (
+                        <span className="flex items-center">
+                          <FileText className="w-3 h-3 mr-1" />
+                          From: {item.source}
+                        </span>
+                      )}
+                      {item.dueDate && (
+                        <span className="flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {item.dueDate}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
+              ))}
+
+              <div className="mt-4 p-3 bg-purple-100/50 dark:bg-purple-900/20 rounded-lg border border-purple-200/50 dark:border-purple-700/50">
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      fetchIntelligentTasks(
+                        "urgent tasks, deadlines, time-sensitive appointments, bills due",
+                        true
+                      )
+                    }
+                    disabled={loadingTasks}
+                    className="text-xs h-7 bg-white/50 hover:bg-white border-purple-200 text-purple-700 hover:text-purple-800"
+                  >
+                    🚨 Urgent
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      fetchIntelligentTasks(
+                        "personal projects, home tasks, errands, shopping, maintenance",
+                        true
+                      )
+                    }
+                    disabled={loadingTasks}
+                    className="text-xs h-7 bg-white/50 hover:bg-white border-purple-200 text-purple-700 hover:text-purple-800"
+                  >
+                    🏠 Personal
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      fetchIntelligentTasks(
+                        "appointments, meetings, events, calls, doctor visits",
+                        true
+                      )
+                    }
+                    disabled={loadingTasks}
+                    className="text-xs h-7 bg-white/50 hover:bg-white border-purple-200 text-purple-700 hover:text-purple-800"
+                  >
+                    📅 Appointments
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      fetchIntelligentTasks(
+                        "work deliverables, follow-ups, action items, client tasks",
+                        true
+                      )
+                    }
+                    disabled={loadingTasks}
+                    className="text-xs h-7 bg-white/50 hover:bg-white border-purple-200 text-purple-700 hover:text-purple-800"
+                  >
+                    💼 Work
+                  </Button>
+                </div>
+                <p className="text-xs text-purple-700 dark:text-purple-300 flex items-center">
+                  <Zap className="w-3 h-3 mr-1" />
+                  AI analyzes your notes for actionable tasks. Auto-refreshes
+                  once daily, instant refresh on button click.
+                </p>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Zap className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 mb-2">
+                No intelligent insights available yet
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+                Add notes about personal tasks, appointments, errands, or work
+                items. Auto-refreshes daily or click refresh for instant
+                updates.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddDialog(true)}
+                  className="text-xs h-8 border-purple-200 text-purple-700 hover:bg-purple-50"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Add Note
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchIntelligentTasks(undefined, true)}
+                  disabled={loadingTasks}
+                  className="text-xs h-8 border-purple-200 text-purple-700 hover:bg-purple-50"
+                >
+                  <RefreshCw
+                    className={`w-3 h-3 mr-1 ${
+                      loadingTasks ? "animate-spin" : ""
+                    }`}
+                  />
+                  Refresh Now
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
 
