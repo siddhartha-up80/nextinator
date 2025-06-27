@@ -6,6 +6,7 @@ import {
   Bot,
   CheckCircle,
   Copy,
+  RefreshCw,
   StepForward,
   Trash,
   XCircle,
@@ -74,10 +75,103 @@ export default function AIChatbox({
     sessionId || null
   );
   const [sessionTitle, setSessionTitle] = useState<string>("New Chat");
+  const [dynamicQuestions, setDynamicQuestions] = useState<string[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState<boolean>(true);
+  const [questionsCache, setQuestionsCache] = useState<{
+    questions: string[];
+    timestamp: number;
+    nextRefreshIn?: number;
+  } | null>(null);
+  const [isRateLimited, setIsRateLimited] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLInputElement>(null);
   const isCreatingSession = useRef<boolean>(false);
   const { showToast } = useToast();
+
+  // Function to fetch dynamic questions
+  const fetchDynamicQuestions = async (force: boolean = false) => {
+    try {
+      setLoadingQuestions(true);
+      setIsRateLimited(false);
+      
+      // Check local cache first if not forcing refresh
+      if (!force && questionsCache) {
+        const timeSinceCache = Date.now() - questionsCache.timestamp;
+        const cacheValidTime = 5 * 60 * 1000; // 5 minutes
+        
+        if (timeSinceCache < cacheValidTime) {
+          console.log("Using local cached questions");
+          setDynamicQuestions(questionsCache.questions);
+          setLoadingQuestions(false);
+          return;
+        }
+      }
+      
+      const url = force ? "/api/generate-questions?force=true" : "/api/generate-questions";
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setDynamicQuestions(data.questions || []);
+        
+        // Update local cache
+        setQuestionsCache({
+          questions: data.questions || [],
+          timestamp: Date.now(),
+          nextRefreshIn: data.nextRefreshIn,
+        });
+        
+        // Handle different scenarios
+        if (force && !data.cached) {
+          // Successfully generated new questions on force refresh
+          showToast("New questions generated!", "success");
+        } else if (force && data.cached && data.nextRefreshIn) {
+          // Force refresh but still rate limited
+          setIsRateLimited(true);
+          const minutes = Math.ceil(data.nextRefreshIn / 60);
+          showToast(
+            `New questions available in ${minutes} minute${minutes > 1 ? 's' : ''}.`,
+            "info"
+          );
+        }
+        // Don't show any toast for regular cached responses
+        
+      } else {
+        console.error("Failed to fetch questions");
+        // Fallback questions if API fails
+        const fallbackQuestions = [
+          "Summarize key points from my notes",
+          "Help me find specific information in my documents",
+          "Create practice questions from my study materials",
+          "Extract important dates and deadlines",
+          "Compare different topics in my notes",
+        ];
+        setDynamicQuestions(fallbackQuestions);
+        showToast("Using fallback questions due to connection error", "error");
+      }
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      // Fallback questions
+      const fallbackQuestions = [
+        "Summarize key points from my notes",
+        "Help me find specific information in my documents",
+        "Create practice questions from my study materials",
+        "Extract important dates and deadlines",
+        "Compare different topics in my notes",
+      ];
+      setDynamicQuestions(fallbackQuestions);
+      showToast("Using fallback questions due to error", "error");
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
+
+  // Load dynamic questions on component mount and when session clears
+  useEffect(() => {
+    if (messages.length === 0) {
+      fetchDynamicQuestions();
+    }
+  }, [messages.length]);
+
   // Load chat session when sessionId changes
   useEffect(() => {
     // Convert both to string for comparison, treating undefined as empty string
@@ -114,68 +208,73 @@ export default function AIChatbox({
       showToast("Failed to load chat session", "error");
     }
   };
-  const saveChatSession = useCallback(async () => {
-    if (messages.length === 0) return;
+  const saveChatSession = useCallback(
+    async (overrideMessages?: Message[]) => {
+      const messagesToSave = overrideMessages || messages;
 
-    // Prevent multiple simultaneous session creations
-    if (!currentSessionId && !isCreatingSession.current) {
-      isCreatingSession.current = true;
-    } else if (!currentSessionId && isCreatingSession.current) {
-      // Another save is already in progress, skip this one
-      return;
-    }
+      if (messagesToSave.length === 0) return;
 
-    try {
-      // Save messages to database
-      const response = await fetch("/api/chat-messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionId: currentSessionId,
-          messages: messages,
-          createSession: !currentSessionId, // Create session if none exists
-        }),
-      });
+      // Prevent multiple simultaneous session creations
+      if (!currentSessionId && !isCreatingSession.current) {
+        isCreatingSession.current = true;
+      } else if (!currentSessionId && isCreatingSession.current) {
+        // Another save is already in progress, skip this one
+        return;
+      }
 
-      if (response.ok) {
-        const result = await response.json();
+      try {
+        // Save messages to database
+        const response = await fetch("/api/chat-messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId: currentSessionId,
+            messages: messagesToSave,
+            createSession: !currentSessionId, // Create session if none exists
+          }),
+        });
 
-        // If a new session was created, update our current session ID
-        if (result.sessionId && !currentSessionId) {
-          setCurrentSessionId(result.sessionId);
-          onSessionChange?.(result.sessionId);
-          isCreatingSession.current = false; // Reset the flag
-        } // Auto-generate title from first user message if still "New Chat"
-        if (sessionTitle === "New Chat" && messages.length > 0) {
-          const firstUserMessage = messages.find((m) => m.role === "user");
-          if (firstUserMessage) {
-            const newTitle = smartTruncate(firstUserMessage.content, 50);
-            setSessionTitle(newTitle);
+        if (response.ok) {
+          const result = await response.json();
 
-            // Update session title in database
-            const sessionIdToUpdate = result.sessionId || currentSessionId;
-            if (sessionIdToUpdate) {
-              await fetch(`/api/chat-sessions/${sessionIdToUpdate}`, {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  title: newTitle,
-                }),
-              });
+          // If a new session was created, update our current session ID
+          if (result.sessionId && !currentSessionId) {
+            setCurrentSessionId(result.sessionId);
+            onSessionChange?.(result.sessionId);
+            isCreatingSession.current = false; // Reset the flag
+          } // Auto-generate title from first user message if still "New Chat"
+          if (sessionTitle === "New Chat" && messagesToSave.length > 0) {
+            const firstUserMessage = messagesToSave.find((m) => m.role === "user");
+            if (firstUserMessage) {
+              const newTitle = smartTruncate(firstUserMessage.content, 50);
+              setSessionTitle(newTitle);
+
+              // Update session title in database
+              const sessionIdToUpdate = result.sessionId || currentSessionId;
+              if (sessionIdToUpdate) {
+                await fetch(`/api/chat-sessions/${sessionIdToUpdate}`, {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    title: newTitle,
+                  }),
+                });
+              }
             }
           }
         }
+      } catch (error) {
+        console.error("Failed to save chat session:", error);
+        showToast("Failed to save chat session", "error");
+        isCreatingSession.current = false; // Reset flag on error
       }
-    } catch (error) {
-      console.error("Failed to save chat session:", error);
-      showToast("Failed to save chat session", "error");
-      isCreatingSession.current = false; // Reset flag on error
-    }
-  }, [messages, currentSessionId, sessionTitle, onSessionChange]);
+    },
+    [messages, currentSessionId, sessionTitle, onSessionChange]
+  );
   // Auto-save messages when they change, but debounce rapid changes
   useEffect(() => {
     if (messages.length > 0) {
@@ -193,6 +292,8 @@ export default function AIChatbox({
     isCreatingSession.current = false; // Reset the flag
     onSessionChange?.("");
     showToast("Chat cleared successfully", "success");
+    // Fetch new questions when chat is cleared
+    fetchDynamicQuestions();
   };
   // Initialize with empty state - session will be created when first message is sent
   useEffect(() => {
@@ -218,9 +319,9 @@ export default function AIChatbox({
   const lastMessageIsUser = messages[messages.length - 1]?.role === "user";
 
   return (
-    <div className="flex h-[92%] fixed bottom-0 md:w-[80%] w-[92%] mx-auto flex-col bg-background justify-between">
+    <div className="flex h-[calc(100vh-80px)] fixed top-16 bottom-0 md:w-[80%] w-[92%] mx-auto flex-col bg-background justify-between overflow-hidden">
       <div
-        className="mt-3 overflow-y-auto px-3 flex-1 h-full w-full"
+        className="overflow-y-auto px-3 flex-1 h-full w-full overflow-x-hidden"
         ref={scrollRef}
       >
         {" "}
@@ -259,137 +360,62 @@ export default function AIChatbox({
           />
         )}
         {!error && messages.length === 0 && (
-          <div className="gap-2 flex h-full flex-col items-center justify-center">
-            <div className="flex gap-3 items-center justify-center">
+          <div className="flex flex-col items-center justify-start px-4 py-6 h-full overflow-y-auto">
+            <div className="flex gap-1 justify-center text-center max-w-2xl mb-6 text-sm mt-4">
               <Bot />
-              Add your data and Ask the Bot-Inator, it will answer the question
+              Add your data and Ask the Bot-Inator, it will answer questions
               based on your data. Try using these prompts ⤵️!
             </div>
-            <Button
-              variant={"secondary"}
-              size={"sm"}
-              onClick={async () => {
-                const syntheticEvent = {
-                  target: {
-                    value:
-                      "Give sample email for applying to the given Job Description: ",
-                  },
-                };
-                handleInputChange(
-                  syntheticEvent as React.ChangeEvent<HTMLInputElement>
-                );
-              }}
-            >
-              Give sample email for applying to the given Job Description:
-            </Button>{" "}
-            <Button
-              variant={"secondary"}
-              size={"sm"}
-              onClick={async () => {
-                const syntheticEvent = {
-                  target: {
-                    value: "Customize my cover letter for this job role: ",
-                  },
-                };
-                handleInputChange(
-                  syntheticEvent as React.ChangeEvent<HTMLInputElement>
-                );
-              }}
-            >
-              Customize my cover letter for this job role:
-            </Button>{" "}
-            <Button
-              variant={"secondary"}
-              size={"sm"}
-              onClick={async () => {
-                const syntheticEvent = {
-                  target: {
-                    value:
-                      "Give sample questions with answers which can be asked from me for this role: ",
-                  },
-                };
-                handleInputChange(
-                  syntheticEvent as React.ChangeEvent<HTMLInputElement>
-                );
-              }}
-            >
-              Give sample questions with answers which can be asked from me for
-              this role:
-            </Button>
-            <Button
-              variant={"secondary"}
-              size={"sm"}
-              onClick={async () => {
-                const syntheticEvent = {
-                  target: {
-                    value:
-                      " Give sample answer for this question in 100 words: ",
-                  },
-                };
-                handleInputChange(
-                  syntheticEvent as React.ChangeEvent<HTMLInputElement>
-                );
-              }}
-            >
-              Give sample answer for this question in 100 words:
-            </Button>
-            <Button
-              variant={"secondary"}
-              size={"sm"}
-              onClick={async () => {
-                const syntheticEvent = {
-                  target: {
-                    value: " Give sample answer for this question: ",
-                  },
-                };
-                handleInputChange(
-                  syntheticEvent as React.ChangeEvent<HTMLInputElement>
-                );
-              }}
-            >
-              Give sample answer for this question:
-            </Button>
-            <Button
-              variant={"secondary"}
-              size={"sm"}
-              onClick={async () => {
-                const syntheticEvent = {
-                  target: {
-                    value:
-                      " Give sample answer for this question based on my resume: ",
-                  },
-                };
-                handleInputChange(
-                  syntheticEvent as React.ChangeEvent<HTMLInputElement>
-                );
-              }}
-            >
-              Give sample answer for this question based on my resume:
-            </Button>{" "}
-            <Button
-              variant={"secondary"}
-              size={"sm"}
-              onClick={async () => {
-                const syntheticEvent = {
-                  target: {
-                    value:
-                      " Give sample answer for this question based on my introduction: ",
-                  },
-                };
-                handleInputChange(
-                  syntheticEvent as React.ChangeEvent<HTMLInputElement>
-                );
-              }}
-            >
-              Give sample answer for this question based on my introduction:
-            </Button>
+            
+            {loadingQuestions ? (
+              <div className="flex items-center gap-2 text-muted-foreground mb-4">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Generating personalized questions from your notes...
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2 justify-center max-w-6xl mx-auto px-2 mb-6">
+                  {dynamicQuestions.map((question, index) => (
+                    <Button
+                      key={index}
+                      variant={"secondary"}
+                      size={"sm"}
+                      className="text-xs whitespace-normal text-center h-auto py-3 px-4 max-w-[300px] break-words leading-relaxed min-h-[48px] flex items-center justify-center"
+                      onClick={() => {
+                        const syntheticEvent = {
+                          target: {
+                            value: question,
+                          },
+                        };
+                        handleInputChange(
+                          syntheticEvent as React.ChangeEvent<HTMLInputElement>
+                        );
+                      }}
+                    >
+                      {question}
+                    </Button>
+                  ))}
+                </div>
+                
+                <Button
+                  variant={"outline"}
+                  
+                  onClick={() => fetchDynamicQuestions(true)}
+                  className="mt-4 mb-4"
+                  disabled={loadingQuestions}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loadingQuestions ? 'animate-spin' : ''}`} />
+                  {isRateLimited ? 'Refresh (Rate Limited)' : 'Get New Questions'}
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>
-      <div className="">
+      <div className="pb-0">
         <form
           onSubmit={handleSubmit}
-          className="m-3 flex gap-1 max-w-5xl mx-auto"
+          className="m-1 flex gap-1 max-w-5xl mx-auto"
         >
           {" "}
           <Button
@@ -405,7 +431,7 @@ export default function AIChatbox({
           <Input
             value={input}
             onChange={handleInputChange}
-            placeholder="Say Something..."
+            placeholder="Ask something from your data..."
             className=""
             ref={inputRef}
           />
