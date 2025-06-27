@@ -119,9 +119,12 @@ export default function SettingsDialog({
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="flex items-center gap-2">
-          <Settings className="w-4 h-4" />
-          <span className="hidden sm:inline">Settings</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+        >
+          <Settings size={20} className="text-gray-600 dark:text-gray-300" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">

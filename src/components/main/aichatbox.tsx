@@ -28,6 +28,8 @@ interface AIChatboxProps {
   onclose?: () => void;
   sessionId?: string;
   onSessionChange?: (sessionId: string) => void;
+  initialMessage?: string;
+  onClearChat?: () => void;
 }
 
 export default function AIChatbox({
@@ -35,6 +37,8 @@ export default function AIChatbox({
   onclose,
   sessionId,
   onSessionChange,
+  initialMessage,
+  onClearChat,
 }: AIChatboxProps) {
   const settings = useChatSettings();
   const [chatKey, setChatKey] = useState(0);
@@ -46,6 +50,7 @@ export default function AIChatbox({
     handleInputChange,
     handleSubmit,
     setMessages,
+    append,
     isLoading,
     error,
   } = useChat({
@@ -83,6 +88,8 @@ export default function AIChatbox({
     nextRefreshIn?: number;
   } | null>(null);
   const [isRateLimited, setIsRateLimited] = useState<boolean>(false);
+  const [initialMessageProcessed, setInitialMessageProcessed] =
+    useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLInputElement>(null);
   const isCreatingSession = useRef<boolean>(false);
@@ -191,6 +198,38 @@ export default function AIChatbox({
     }
   }, [sessionId, currentSessionId]);
 
+  // Reset initial message processed flag when initialMessage changes
+  useEffect(() => {
+    if (initialMessage) {
+      setInitialMessageProcessed(false);
+    }
+  }, [initialMessage]);
+
+  // Handle initial message from URL parameter
+  useEffect(() => {
+    if (
+      initialMessage &&
+      initialMessage.trim() !== "" &&
+      messages.length === 0 &&
+      !isLoading &&
+      !initialMessageProcessed
+    ) {
+      setInitialMessageProcessed(true);
+
+      // Use append to directly add the message and trigger AI response
+      append({
+        role: "user",
+        content: initialMessage.trim(),
+      });
+    }
+  }, [
+    initialMessage,
+    messages.length,
+    isLoading,
+    initialMessageProcessed,
+    append,
+  ]);
+
   const loadChatSession = async (sessionId: string) => {
     try {
       const response = await fetch(`/api/chat-sessions/${sessionId}`);
@@ -294,8 +333,10 @@ export default function AIChatbox({
     setMessages([]);
     setCurrentSessionId(null);
     setSessionTitle("New Chat");
+    setInitialMessageProcessed(false); // Reset initial message flag
     isCreatingSession.current = false; // Reset the flag
     onSessionChange?.("");
+    onClearChat?.(); // Notify parent component
     showToast("Chat cleared successfully", "success");
     // Fetch new questions when chat is cleared
     fetchDynamicQuestions();
@@ -324,9 +365,9 @@ export default function AIChatbox({
   const lastMessageIsUser = messages[messages.length - 1]?.role === "user";
 
   return (
-    <div className="flex h-[calc(100vh-80px)] fixed top-16 bottom-0 md:w-[80%] w-[92%] mx-auto flex-col bg-background justify-between overflow-hidden">
+    <div className="flex h-[calc(100vh-80px)] fixed top-16 bottom-0 md:w-[80%] w-[92%] mx-auto flex-col  justify-between overflow-hidden">
       <div
-        className="overflow-y-auto px-2 flex-1 h-full w-full overflow-x-hidden"
+        className="overflow-y-auto px-2 pt-2 flex-1 h-full w-full overflow-x-hidden"
         ref={scrollRef}
       >
         {" "}
@@ -522,7 +563,7 @@ function ChatMessage({
           className={cn(
             "rounded-md border px-3 py-2",
             isAiMessage
-              ? "bg-background markdown-content"
+              ? "bg-white dark:bg-gray-800 markdown-content"
               : "bg-primary text-primary-foreground whitespace-pre-line"
           )}
         >
@@ -551,12 +592,12 @@ function ChatMessage({
                     {children}
                   </ol>
                 ),
-                // eslint-disable-next-line react/jsx-key
-                li: ({ children }) => <li>{children}</li>,
+                // eslint-disable-next-line jsx-a11y/no-redundant-roles, react/jsx-key
+                li: ({ children }) => <li className="mb-1">{children}</li>,
                 code: ({ children, className, ...props }) => {
                   const isInline = !className;
                   return isInline ? (
-                    <code className="bg-gray-100 dark:bg-gray-800 text-white px-1 rounded text-sm font-mono">
+                    <code className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-1 rounded text-sm font-mono">
                       {children}
                     </code>
                   ) : (
@@ -566,7 +607,7 @@ function ChatMessage({
                   );
                 },
                 pre: ({ children }) => (
-                  <pre className="bg-gray-100 dark:bg-gray-900 text-white p-2 rounded-md overflow-x-auto text-sm mb-2">
+                  <pre className="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-2 rounded-md overflow-x-auto text-sm mb-2">
                     {children}
                   </pre>
                 ),
@@ -630,7 +671,7 @@ function ChatMessage({
           </div>
         )}
         {isAiMessage && !isLoading && isLastMessage && (
-          <div className="text-sm text-yellow-600 flex items-center gap-1 mt-1">
+          <div className="text-sm text-red-600 flex items-center gap-1 mt-1">
             <XCircle size={16} className="inline" />
             Tips: Delete <Trash size={12} />
             current chat before starting a new question which is not related to

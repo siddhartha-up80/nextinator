@@ -82,7 +82,7 @@ export function SharedChatStorageManager() {
     const percentage = (stats.totalSize / maxSize) * 100;
 
     if (percentage < 50) return "text-green-600";
-    if (percentage < 80) return "text-yellow-600";
+    if (percentage < 80) return "text-red-600";
     return "text-red-600";
   };
 
@@ -141,7 +141,7 @@ export function SharedChatStorageManager() {
                 getStorageUsagePercentage() < 50
                   ? "bg-green-500"
                   : getStorageUsagePercentage() < 80
-                  ? "bg-yellow-500"
+                  ? "bg-red-500"
                   : "bg-red-500"
               } ${
                 getStorageUsagePercentage() === 0
@@ -188,13 +188,13 @@ export function SharedChatStorageManager() {
 
         {/* Warning for high storage usage */}
         {getStorageUsagePercentage() > 80 && (
-          <div className="flex items-start gap-3 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-medium text-yellow-800 dark:text-yellow-200">
+              <p className="font-medium text-red-800 dark:text-red-200">
                 High Storage Usage
               </p>
-              <p className="text-yellow-700 dark:text-yellow-300">
+              <p className="text-red-700 dark:text-red-300">
                 Consider clearing old cached chats to free up space. The system
                 will automatically clean up old data when needed.
               </p>

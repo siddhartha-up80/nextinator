@@ -156,7 +156,7 @@ const GroupManagementDialog = ({
       "#8b5cf6": "bg-violet-500",
       "#06b6d4": "bg-cyan-500",
       "#10b981": "bg-emerald-500",
-      "#f59e0b": "bg-amber-500",
+      "#f59e0b": "bg-red-500",
       "#ef4444": "bg-red-500",
       "#ec4899": "bg-pink-500",
       "#84cc16": "bg-lime-500",
@@ -171,7 +171,7 @@ const GroupManagementDialog = ({
     "#8b5cf6", // Violet
     "#06b6d4", // Cyan
     "#10b981", // Emerald
-    "#f59e0b", // Amber
+    "#f59e0b", // Red
     "#ef4444", // Red
     "#ec4899", // Pink
     "#84cc16", // Lime

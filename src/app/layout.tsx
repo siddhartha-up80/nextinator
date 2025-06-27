@@ -5,6 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "./ThemeProvider";
 import { ToastProvider } from "@/components/ui/toast";
 import { ChatHistoryProvider } from "@/contexts/ChatHistoryContext";
+import { SidebarProvider } from "@/contexts/SidebarContext";
 import "@/lib/polyfills";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -32,7 +33,9 @@ export default function RootLayout({
         <body className={inter.className}>
           <ToastProvider>
             <ThemeProvider attribute="class">
-              <ChatHistoryProvider>{children}</ChatHistoryProvider>
+              <SidebarProvider>
+                <ChatHistoryProvider>{children}</ChatHistoryProvider>
+              </SidebarProvider>
             </ThemeProvider>
           </ToastProvider>
         </body>

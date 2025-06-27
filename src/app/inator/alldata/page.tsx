@@ -229,39 +229,27 @@ const Page = () => {
     );
   }
   return (
-    <div className="py-5 md:px-5 mx-auto max-w-7xl">
-      {" "}
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Header Controls */}
-      <div className="mb-6 space-y-4">
-        {/* Search Input */}
-        <div className="relative max-w-md mx-auto">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            type="text"
-            placeholder="Search notes..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
+      <div className="mb-8">
         {/* View Controls */}
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
           {/* View Mode Toggle or Back Button */}
           {selectedGroupId ? (
             <div className="flex items-center gap-4">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => {
                   setSelectedGroupId("");
                   setViewMode("grouped");
                   router.push("/inator/alldata");
                 }}
+                className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 ← Back to Groups
               </Button>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 {selectedGroupId === "ungrouped"
                   ? "Viewing Ungrouped Notes"
                   : `Viewing: ${
@@ -271,12 +259,11 @@ const Page = () => {
               </div>
             </div>
           ) : (
-            <div className="flex rounded-lg border">
+            <div className="flex rounded-lg  p-1">
               <Button
                 variant={viewMode === "grouped" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("grouped")}
-                className="rounded-r-none"
               >
                 <FolderIcon size={16} className="mr-2" />
                 Grouped
@@ -285,21 +272,21 @@ const Page = () => {
                 variant={viewMode === "all" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("all")}
-                className="rounded-l-none"
               >
                 <Grid size={16} className="mr-2" />
                 All Notes
               </Button>
             </div>
-          )}{" "}
-          {/* Group Filter (only show when in grouped mode and no specific group selected) */}
+          )}
+
+          {/* Group Filter and Management */}
           {viewMode === "grouped" && !selectedGroupId && (
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-3 items-center">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowGroupManagement(true)}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-gray-300 dark:border-gray-600"
               >
                 <Settings size={16} />
                 Manage Groups
@@ -307,7 +294,7 @@ const Page = () => {
               <select
                 value={selectedGroupId}
                 onChange={(e) => setSelectedGroupId(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-background text-foreground"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm"
                 title="Filter by group"
               >
                 <option value="">All Groups</option>
@@ -321,7 +308,7 @@ const Page = () => {
             </div>
           )}
         </div>
-      </div>{" "}
+      </div>
       {/* Content */}
       {viewMode === "grouped" && !selectedGroupId ? (
         <GroupedNotesView groups={groups} />
@@ -450,7 +437,7 @@ const GroupSection = ({
       "#8b5cf6": "bg-violet-500",
       "#06b6d4": "bg-cyan-500",
       "#10b981": "bg-emerald-500",
-      "#f59e0b": "bg-amber-500",
+      "#f59e0b": "bg-red-500",
       "#ef4444": "bg-red-500",
       "#ec4899": "bg-pink-500",
       "#84cc16": "bg-lime-500",
