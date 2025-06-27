@@ -93,12 +93,12 @@ export default function AIChatbox({
     try {
       setLoadingQuestions(true);
       setIsRateLimited(false);
-      
+
       // Check local cache first if not forcing refresh
       if (!force && questionsCache) {
         const timeSinceCache = Date.now() - questionsCache.timestamp;
         const cacheValidTime = 5 * 60 * 1000; // 5 minutes
-        
+
         if (timeSinceCache < cacheValidTime) {
           console.log("Using local cached questions");
           setDynamicQuestions(questionsCache.questions);
@@ -106,20 +106,22 @@ export default function AIChatbox({
           return;
         }
       }
-      
-      const url = force ? "/api/generate-questions?force=true" : "/api/generate-questions";
+
+      const url = force
+        ? "/api/generate-questions?force=true"
+        : "/api/generate-questions";
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setDynamicQuestions(data.questions || []);
-        
+
         // Update local cache
         setQuestionsCache({
           questions: data.questions || [],
           timestamp: Date.now(),
           nextRefreshIn: data.nextRefreshIn,
         });
-        
+
         // Handle different scenarios
         if (force && !data.cached) {
           // Successfully generated new questions on force refresh
@@ -129,12 +131,13 @@ export default function AIChatbox({
           setIsRateLimited(true);
           const minutes = Math.ceil(data.nextRefreshIn / 60);
           showToast(
-            `New questions available in ${minutes} minute${minutes > 1 ? 's' : ''}.`,
+            `New questions available in ${minutes} minute${
+              minutes > 1 ? "s" : ""
+            }.`,
             "info"
           );
         }
         // Don't show any toast for regular cached responses
-        
       } else {
         console.error("Failed to fetch questions");
         // Fallback questions if API fails
@@ -246,7 +249,9 @@ export default function AIChatbox({
             isCreatingSession.current = false; // Reset the flag
           } // Auto-generate title from first user message if still "New Chat"
           if (sessionTitle === "New Chat" && messagesToSave.length > 0) {
-            const firstUserMessage = messagesToSave.find((m) => m.role === "user");
+            const firstUserMessage = messagesToSave.find(
+              (m) => m.role === "user"
+            );
             if (firstUserMessage) {
               const newTitle = smartTruncate(firstUserMessage.content, 50);
               setSessionTitle(newTitle);
@@ -321,7 +326,7 @@ export default function AIChatbox({
   return (
     <div className="flex h-[calc(100vh-80px)] fixed top-16 bottom-0 md:w-[80%] w-[92%] mx-auto flex-col bg-background justify-between overflow-hidden">
       <div
-        className="overflow-y-auto px-3 flex-1 h-full w-full overflow-x-hidden"
+        className="overflow-y-auto px-2 flex-1 h-full w-full overflow-x-hidden"
         ref={scrollRef}
       >
         {" "}
@@ -360,13 +365,13 @@ export default function AIChatbox({
           />
         )}
         {!error && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-start px-4 py-6 h-full overflow-y-auto">
+          <div className="flex flex-col items-center justify-start md:px-4 px-2 py-6 h-full overflow-y-auto">
             <div className="flex gap-1 justify-center text-center max-w-2xl mb-6 text-sm mt-4">
               <Bot />
               Add your data and Ask the Bot-Inator, it will answer questions
               based on your data. Try using these prompts ⤵️!
             </div>
-            
+
             {loadingQuestions ? (
               <div className="flex items-center gap-2 text-muted-foreground mb-4">
                 <RefreshCw className="h-4 w-4 animate-spin" />
@@ -396,23 +401,28 @@ export default function AIChatbox({
                     </Button>
                   ))}
                 </div>
-                
+
                 <Button
                   variant={"outline"}
-                  
                   onClick={() => fetchDynamicQuestions(true)}
                   className="mt-4 mb-4"
                   disabled={loadingQuestions}
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loadingQuestions ? 'animate-spin' : ''}`} />
-                  {isRateLimited ? 'Refresh (Rate Limited)' : 'Get New Questions'}
+                  <RefreshCw
+                    className={`h-4 w-4 mr-2 ${
+                      loadingQuestions ? "animate-spin" : ""
+                    }`}
+                  />
+                  {isRateLimited
+                    ? "Refresh (Rate Limited)"
+                    : "Get New Questions"}
                 </Button>
               </>
             )}
           </div>
         )}
       </div>
-      <div className="pb-0">
+      <div className="pb-[calc(8vh)] md:pb-0">
         <form
           onSubmit={handleSubmit}
           className="m-1 flex gap-1 max-w-5xl mx-auto"
