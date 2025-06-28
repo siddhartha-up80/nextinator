@@ -43,7 +43,7 @@ import Sidebar from "./sidebar";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import Addnotedialog from "./addnotedialog";
-import OptimizedChatHistoryDialog from "./optimizedchathistorydialog";
+import ChatHistoryDialog from "./chathistorydialog";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useSharingStatus } from "./sharingstatus";
 import { useToast } from "@/components/ui/toast";
@@ -464,7 +464,7 @@ const Navbar = ({
       )}
       {/* Chat History Dialog */}
       {onSelectChat && showChatHistoryDialog && (
-        <OptimizedChatHistoryDialog
+        <ChatHistoryDialog
           onSelectChat={(sessionId) => {
             onSelectChat(sessionId);
             setShowChatHistoryDialog(false);

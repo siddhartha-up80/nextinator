@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +21,12 @@ import {
   Copy,
   CheckCircle,
   Shield,
+  Search,
+  X,
+  ArrowUpDown,
+  Calendar,
+  MessageCircle,
+  Trash,
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { Input } from "@/components/ui/input";
@@ -45,7 +51,7 @@ interface ChatSession {
   }>;
 }
 
-interface OptimizedChatHistoryDialogProps {
+interface ChatHistoryDialogProps {
   onSelectChat: (sessionId: string) => void;
   currentSessionId?: string;
   open?: boolean;
@@ -53,13 +59,13 @@ interface OptimizedChatHistoryDialogProps {
   trigger?: React.ReactNode;
 }
 
-export default function OptimizedChatHistoryDialog({
+export default function ChatHistoryDialog({
   onSelectChat,
   currentSessionId,
   open: externalOpen,
   onOpenChange: externalOnOpenChange,
   trigger,
-}: OptimizedChatHistoryDialogProps) {
+}: ChatHistoryDialogProps) {
   const { user } = useUser();
   const { updateSharingStatus: updateGlobalSharingStatus } = useSharingStatus();
   const { showToast } = useToast();
@@ -100,8 +106,13 @@ export default function OptimizedChatHistoryDialog({
     sessionId: string;
     sessionTitle: string;
   }>({ open: false, sessionId: "", sessionTitle: "" });
+  const [deleteAllDialog, setDeleteAllDialog] = useState(false);
   const [unsharingLoading, setUnsharingLoading] = useState(false);
   const [deletingLoading, setDeletingLoading] = useState(false);
+  const [deletingAllLoading, setDeletingAllLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"date" | "title">("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Prefetch data when component mounts or user becomes available
@@ -407,6 +418,110 @@ export default function OptimizedChatHistoryDialog({
       return date.toLocaleDateString();
     }
   };
+
+  // Filter and sort sessions based on search query and sort options
+  const filteredAndSortedSessions = useMemo(() => {
+    let filtered = sessions;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      filtered = sessions.filter(
+        (session) =>
+          session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          session.messages.some((message) =>
+            message.content.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+      );
+    }
+
+    // Apply sorting
+    return filtered.sort((a, b) => {
+      let comparison = 0;
+
+      if (sortBy === "date") {
+        const dateA = new Date(a.updatedAt).getTime();
+        const dateB = new Date(b.updatedAt).getTime();
+        comparison = dateA - dateB;
+      } else if (sortBy === "title") {
+        comparison = a.title.localeCompare(b.title);
+      }
+
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+  }, [sessions, searchQuery, sortBy, sortOrder]);
+
+  const clearSearch = () => {
+    setSearchQuery("");
+  };
+
+  const toggleSort = (newSortBy: "date" | "title") => {
+    if (sortBy === newSortBy) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(newSortBy);
+      setSortOrder("desc");
+    }
+  };
+
+  const deleteAllChats = async () => {
+    setDeleteAllDialog(true);
+  };
+
+  const confirmDeleteAllChats = async () => {
+    // Only delete non-shared chats
+    const nonSharedSessions = sessions.filter((session) => !session.isShared);
+
+    if (nonSharedSessions.length === 0) {
+      showToast("No non-shared chats to delete", "info");
+      setDeleteAllDialog(false);
+      return;
+    }
+
+    setDeletingAllLoading(true);
+    try {
+      const deletePromises = nonSharedSessions.map((session) =>
+        fetch(`/api/chat-sessions?id=${session.id}`, {
+          method: "DELETE",
+        })
+      );
+
+      const results = await Promise.allSettled(deletePromises);
+      const failedDeletes = results.filter(
+        (result) => result.status === "rejected"
+      ).length;
+
+      if (failedDeletes === 0) {
+        // Remove sessions from local state
+        nonSharedSessions.forEach((session) => removeSession(session.id));
+        showToast(
+          `Successfully deleted ${nonSharedSessions.length} chats`,
+          "success"
+        );
+
+        // If current session was deleted, start a new chat
+        if (
+          currentSessionId &&
+          nonSharedSessions.some((s) => s.id === currentSessionId)
+        ) {
+          createNewChat();
+        }
+
+        // Refresh sessions
+        refreshSessions();
+      } else {
+        showToast(`Failed to delete ${failedDeletes} chats`, "error");
+        // Still refresh to show what was actually deleted
+        refreshSessions();
+      }
+    } catch (error) {
+      console.error("Failed to delete all chats:", error);
+      showToast("Failed to delete chats", "error");
+    } finally {
+      setDeletingAllLoading(false);
+      setDeleteAllDialog(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
@@ -429,6 +544,85 @@ export default function OptimizedChatHistoryDialog({
               Manage your chat conversations. Click on any chat to continue the
               conversation.
             </DialogDescription>
+
+            {/* Search Bar */}
+            <div className="relative mt-4">
+              <Search
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+                size={16}
+              />
+              <Input
+                placeholder="Search chats..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={clearSearch}
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                >
+                  <X size={14} />
+                </Button>
+              )}
+            </div>
+
+            {/* Control Buttons */}
+            <div className="flex items-center justify-between mt-3 gap-2">
+              <div className="flex items-center gap-1">
+                {/* Sort by Date Button */}
+                <Button
+                  size="sm"
+                  variant={sortBy === "date" ? "default" : "outline"}
+                  onClick={() => toggleSort("date")}
+                  className="text-xs px-2 py-1 h-7"
+                >
+                  <Calendar size={12} className="mr-1" />
+                  Date
+                  {sortBy === "date" && (
+                    <ArrowUpDown
+                      size={10}
+                      className={`ml-1 ${
+                        sortOrder === "desc" ? "rotate-180" : ""
+                      }`}
+                    />
+                  )}
+                </Button>
+
+                {/* Sort by Title Button */}
+                <Button
+                  size="sm"
+                  variant={sortBy === "title" ? "default" : "outline"}
+                  onClick={() => toggleSort("title")}
+                  className="text-xs px-2 py-1 h-7"
+                >
+                  <MessageCircle size={12} className="mr-1" />
+                  Title
+                  {sortBy === "title" && (
+                    <ArrowUpDown
+                      size={10}
+                      className={`ml-1 ${
+                        sortOrder === "desc" ? "rotate-180" : ""
+                      }`}
+                    />
+                  )}
+                </Button>
+              </div>
+
+              {/* Delete All Button */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={deleteAllChats}
+                className="text-xs px-2 py-1 h-7 text-destructive hover:text-destructive"
+                disabled={sessions.filter((s) => !s.isShared).length === 0}
+              >
+                <Trash size={12} className="mr-1" />
+                Delete All
+              </Button>
+            </div>
           </DialogHeader>
 
           <div className="flex flex-col h-full max-h-[calc(80vh-120px)]">
@@ -466,6 +660,25 @@ export default function OptimizedChatHistoryDialog({
                     Try Again
                   </Button>
                 </div>
+              ) : filteredAndSortedSessions.length === 0 &&
+                searchQuery.trim() ? (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                  <Search className="w-12 h-12 mb-4 opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">
+                    No matching chats
+                  </h3>
+                  <p className="text-sm text-center max-w-sm">
+                    No chats found matching "{searchQuery}". Try a different
+                    search term.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={clearSearch}
+                    className="mt-2"
+                  >
+                    Clear Search
+                  </Button>
+                </div>
               ) : sessions.length === 0 && !loading ? (
                 <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                   <MessageSquare className="w-12 h-12 mb-4 opacity-50" />
@@ -476,7 +689,7 @@ export default function OptimizedChatHistoryDialog({
                 </div>
               ) : (
                 <div className="space-y-1 p-4">
-                  {sessions.map((session) => (
+                  {filteredAndSortedSessions.map((session) => (
                     <div
                       key={session.id}
                       className={`group relative p-4 rounded-lg border hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer transition-all ${
@@ -629,7 +842,7 @@ export default function OptimizedChatHistoryDialog({
                   )}
 
                   {/* End of Results */}
-                  {!hasMore && sessions.length > 0 && (
+                  {!hasMore && filteredAndSortedSessions.length > 0 && (
                     <div className="text-center py-4 text-gray-500 text-sm">
                       You've reached the end of your chat history
                     </div>
@@ -642,6 +855,20 @@ export default function OptimizedChatHistoryDialog({
       </Dialog>
 
       {/* Confirmation Dialogs */}
+      <ConfirmDialog
+        open={deleteAllDialog}
+        onOpenChange={setDeleteAllDialog}
+        title="Delete All Non-Shared Chats"
+        description={`Are you sure you want to delete all non-shared chats? This will permanently remove ${
+          sessions.filter((s) => !s.isShared).length
+        } chat(s). Shared chats will be preserved. This action cannot be undone.`}
+        confirmText="Delete All"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteAllChats}
+        variant="destructive"
+        loading={deletingAllLoading}
+      />
+
       <ConfirmDialog
         open={unshareDialog.open}
         onOpenChange={(open) => setUnshareDialog({ ...unshareDialog, open })}
@@ -663,6 +890,18 @@ export default function OptimizedChatHistoryDialog({
         cancelText="Cancel"
         onConfirm={handleDelete}
         loading={deletingLoading}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={deleteAllDialog}
+        onOpenChange={(open) => setDeleteAllDialog(open)}
+        title="Delete All Chats"
+        description="Are you sure you want to delete all non-shared chats? This action cannot be undone."
+        confirmText="Delete All"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteAllChats}
+        loading={deletingAllLoading}
         variant="destructive"
       />
     </>
