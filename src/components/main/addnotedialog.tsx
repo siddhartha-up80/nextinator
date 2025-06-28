@@ -92,6 +92,29 @@ const Addnotedialog = ({
     }
   }, [open]);
 
+  // Reset form when noteToEdit changes
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        title: noteToEdit?.title || "",
+        content: noteToEdit?.content || "",
+        groupId: noteToEdit?.groupId || "",
+      });
+    } else {
+      // Clear form when dialog closes
+      form.reset({
+        title: "",
+        content: "",
+        groupId: "",
+      });
+      setUploadMode("text");
+      setSelectedFile(null);
+      setUploadStatus("");
+      setShowNewGroupInput(false);
+      setNewGroupName("");
+    }
+  }, [noteToEdit, open, form]);
+
   const fetchGroups = async () => {
     try {
       const response = await fetch("/api/groups");

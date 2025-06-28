@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -63,6 +63,14 @@ const Inator = () => {
     null
   );
   const [isRateLimited, setIsRateLimited] = useState(false);
+
+  // Initialize last auto fetch date from localStorage
+  useEffect(() => {
+    const storedDate = localStorage.getItem("lastAutoFetchDate");
+    if (storedDate) {
+      setLastAutoFetchDate(storedDate);
+    }
+  }, []);
   const router = useRouter();
   const { user } = useUser();
 
@@ -117,138 +125,170 @@ const Inator = () => {
     }
   };
 
+  // Internal function to actually fetch the tasks
+  const fetchIntelligentTasksInternal = useCallback(
+    async (customQuery?: string, isManualRefresh = false) => {
+      try {
+        setLoadingTasks(true);
+        setLastFetchTime(Date.now());
+
+        // Update auto-fetch date if this is the first fetch of the day
+        if (!customQuery && !isManualRefresh) {
+          const today = new Date().toDateString();
+          setLastAutoFetchDate(today);
+          localStorage.setItem("lastAutoFetchDate", today);
+        }
+
+        const response = await fetch("/api/intelligent-tasks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: customQuery || taskQuery,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setIntelligentTasks(data.tasks || []);
+          setLastTasksUpdate(
+            new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          );
+        } else if (response.status === 429) {
+          // Rate limited by server
+          const errorData = await response.json();
+          setIntelligentTasks([
+            {
+              task: "Rate limit exceeded",
+              priority: "low",
+              insights:
+                errorData.error || "Please wait before making another request.",
+              category: "system",
+            },
+          ]);
+          // Set rate limited state for UI feedback
+          setIsRateLimited(true);
+          setTimeout(
+            () => setIsRateLimited(false),
+            errorData.retryAfter || 2000
+          );
+        } else {
+          throw new Error(`API request failed with status ${response.status}`);
+        }
+      } catch (error) {
+        console.error("Error fetching intelligent tasks:", error);
+        // Set fallback tasks
+        setIntelligentTasks([
+          {
+            task: "Unable to fetch insights at the moment",
+            priority: "low",
+            insights:
+              "Please try again in a moment. If the issue persists, check your internet connection.",
+            category: "system",
+          },
+        ]);
+      } finally {
+        setLoadingTasks(false);
+      }
+    },
+    [taskQuery]
+  );
+
   // Fetch intelligent tasks from notes with rate limiting
-  const fetchIntelligentTasks = async (
-    customQuery?: string,
-    isManualRefresh = false
-  ) => {
-    const now = Date.now();
-    const today = new Date().toDateString();
-    const timeSinceLastFetch = now - lastFetchTime;
-    const minInterval = 2000; // Minimum 2 seconds between requests
+  const fetchIntelligentTasks = useCallback(
+    async (customQuery?: string, isManualRefresh = false) => {
+      const now = Date.now();
+      const today = new Date().toDateString();
+      const timeSinceLastFetch = now - lastFetchTime;
+      const minInterval = 2000; // Minimum 2 seconds between requests
 
-    // If already loading, don't trigger another request
-    if (loadingTasks) {
-      return;
-    }
+      // If already loading, don't trigger another request
+      if (loadingTasks) {
+        return;
+      }
 
-    // Check if this is an auto-refresh and we've already fetched today
-    if (!isManualRefresh && !customQuery && lastAutoFetchDate === today) {
-      return; // Skip auto-refresh if already done today
-    }
+      // Check if this is an auto-refresh and we've already fetched today
+      if (!isManualRefresh && !customQuery && lastAutoFetchDate === today) {
+        return; // Skip auto-refresh if already done today
+      }
 
-    // For manual refresh, allow immediate execution
-    if (isManualRefresh) {
-      setIsRateLimited(false);
+      // For manual refresh, allow immediate execution
+      if (isManualRefresh) {
+        setIsRateLimited(false);
+        if (debounceTimeout) {
+          clearTimeout(debounceTimeout);
+          setDebounceTimeout(null);
+        }
+        fetchIntelligentTasksInternal(customQuery, true);
+        return;
+      }
+
+      // If too soon since last request for non-manual requests, debounce it
+      if (timeSinceLastFetch < minInterval) {
+        setIsRateLimited(true);
+
+        if (debounceTimeout) {
+          clearTimeout(debounceTimeout);
+        }
+
+        const newTimeout = setTimeout(() => {
+          setIsRateLimited(false);
+          fetchIntelligentTasksInternal(customQuery, false);
+        }, minInterval - timeSinceLastFetch);
+
+        setDebounceTimeout(newTimeout);
+        return;
+      }
+
+      // Clear any existing timeout
       if (debounceTimeout) {
         clearTimeout(debounceTimeout);
         setDebounceTimeout(null);
       }
-      fetchIntelligentTasksInternal(customQuery, true);
-      return;
-    }
 
-    // If too soon since last request for non-manual requests, debounce it
-    if (timeSinceLastFetch < minInterval) {
-      setIsRateLimited(true);
+      setIsRateLimited(false);
+      fetchIntelligentTasksInternal(customQuery, false);
+    },
+    [
+      lastFetchTime,
+      loadingTasks,
+      lastAutoFetchDate,
+      debounceTimeout,
+      fetchIntelligentTasksInternal,
+    ]
+  );
 
-      if (debounceTimeout) {
-        clearTimeout(debounceTimeout);
-      }
-
-      const newTimeout = setTimeout(() => {
-        setIsRateLimited(false);
-        fetchIntelligentTasksInternal(customQuery, false);
-      }, minInterval - timeSinceLastFetch);
-
-      setDebounceTimeout(newTimeout);
-      return;
-    }
-
-    // Clear any existing timeout
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout);
-      setDebounceTimeout(null);
-    }
-
-    setIsRateLimited(false);
-    fetchIntelligentTasksInternal(customQuery, false);
-  };
-
-  // Internal function to actually fetch the tasks
-  const fetchIntelligentTasksInternal = async (
-    customQuery?: string,
-    isManualRefresh = false
-  ) => {
-    try {
-      setLoadingTasks(true);
-      setLastFetchTime(Date.now());
-
-      // Update auto-fetch date if this is the first fetch of the day
-      if (!customQuery && !isManualRefresh) {
-        setLastAutoFetchDate(new Date().toDateString());
-      }
-
-      const response = await fetch("/api/intelligent-tasks", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: customQuery || taskQuery,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setIntelligentTasks(data.tasks || []);
-        setLastTasksUpdate(
-          new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        );
-      } else if (response.status === 429) {
-        // Rate limited by server
-        const errorData = await response.json();
-        setIntelligentTasks([
-          {
-            task: "Rate limit exceeded",
-            priority: "low",
-            insights:
-              errorData.error || "Please wait before making another request.",
-            category: "system",
-          },
-        ]);
-        // Set rate limited state for UI feedback
-        setIsRateLimited(true);
-        setTimeout(() => setIsRateLimited(false), errorData.retryAfter || 2000);
-      } else {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-    } catch (error) {
-      console.error("Error fetching intelligent tasks:", error);
-      // Set fallback tasks
-      setIntelligentTasks([
-        {
-          task: "Unable to fetch insights at the moment",
-          priority: "low",
-          insights:
-            "Please try again in a moment. If the issue persists, check your internet connection.",
-          category: "system",
-        },
-      ]);
-    } finally {
-      setLoadingTasks(false);
-    }
-  };
-
+  // Check if we need to auto-refresh insights today
   useEffect(() => {
     fetchLatestNotes();
     fetchLatestChats();
     fetchChatStats();
-    fetchIntelligentTasks();
   }, []);
+
+  // Separate effect for smart insights auto-refresh (runs after lastAutoFetchDate is loaded)
+  useEffect(() => {
+    if (lastAutoFetchDate !== "") {
+      // lastAutoFetchDate has been loaded from localStorage
+      const today = new Date().toDateString();
+      const shouldAutoRefresh = lastAutoFetchDate !== today;
+
+      if (shouldAutoRefresh) {
+        // Auto-refresh once per day
+        console.log("Auto-refreshing smart insights for today:", today);
+        fetchIntelligentTasks(undefined, false);
+      } else {
+        console.log("Smart insights already refreshed today:", today);
+      }
+    } else {
+      // First time user or no previous data, auto-refresh
+      console.log("First time auto-refresh of smart insights");
+      fetchIntelligentTasks(undefined, false);
+    }
+  }, [lastAutoFetchDate]); // Runs when lastAutoFetchDate changes (loaded from localStorage)
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -377,7 +417,7 @@ const Inator = () => {
       label: "Data Sources",
       value: "7",
       icon: BarChart3,
-      color: "text-purple-600",
+      color: "text-red-600",
     },
     {
       label: "Active Projects",
@@ -412,7 +452,7 @@ const Inator = () => {
     {
       label: "Upload Data",
       icon: BarChart3,
-      color: "bg-purple-500 hover:bg-purple-600",
+      color: "bg-red-500 hover:bg-red-600",
     },
     {
       label: "View Analytics",
@@ -425,7 +465,7 @@ const Inator = () => {
     <div className="p-6 max-w-6xl mx-auto ">
       {/* Welcome Section */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+        <h1 className="md:text-3xl text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           Welcome {user?.firstName || user?.fullName || "back"}
         </h1>
       </div>
@@ -504,7 +544,7 @@ const Inator = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="flex-1 pl-14 pr-4 py-6 text-lg bg-transparent border-none rounded-full focus:outline-none focus:ring-0 placeholder-gray-400"
+                className="flex-1 pl-14 pr-4 py-6 bg-transparent border-none rounded-full focus:outline-none focus:ring-0 placeholder-gray-400"
               />
               <Button
                 onClick={handleSearch}
@@ -636,12 +676,12 @@ const Inator = () => {
 
       {/* AI-Powered Smart Insights */}
       <div className="mt-8">
-        <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-700">
+        <Card className="p-6 bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200 dark:border-red-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center justify-between">
             <div className="flex items-center">
-              <Zap className="w-5 h-5 mr-2 text-purple-600" />
+              <Zap className="w-5 h-5 mr-2 text-red-600" />
               Smart Insights
-              <span className="ml-2 px-2 py-1 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+              <span className="ml-2 px-2 py-1 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
                 Powered by your notes
               </span>
               {lastTasksUpdate && (
@@ -655,7 +695,7 @@ const Inator = () => {
               size="sm"
               onClick={() => fetchIntelligentTasks(undefined, true)}
               disabled={loadingTasks}
-              className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/30"
+              className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30"
               title="Refresh insights (instant)"
             >
               <RefreshCw
@@ -706,7 +746,7 @@ const Inator = () => {
                     )}
                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                       {item.category && (
-                        <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+                        <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
                           {item.category}
                         </span>
                       )}
@@ -727,7 +767,7 @@ const Inator = () => {
                 </div>
               ))}
 
-              <div className="mt-4 p-3 bg-purple-100/50 dark:bg-purple-900/20 rounded-lg border border-purple-200/50 dark:border-purple-700/50">
+              <div className="mt-4 p-3 bg-red-100/50 dark:bg-red-900/20 rounded-lg border border-red-200/50 dark:border-red-700/50">
                 <div className="flex flex-wrap gap-2 mb-3">
                   <Button
                     variant="outline"
@@ -739,7 +779,7 @@ const Inator = () => {
                       )
                     }
                     disabled={loadingTasks}
-                    className="text-xs h-7 bg-white/50 hover:bg-white border-purple-200 text-purple-700 hover:text-purple-800"
+                    className="text-xs h-7 bg-white/50 hover:bg-white border-red-200 text-red-700 hover:text-red-800"
                   >
                     🚨 Urgent
                   </Button>
@@ -753,7 +793,7 @@ const Inator = () => {
                       )
                     }
                     disabled={loadingTasks}
-                    className="text-xs h-7 bg-white/50 hover:bg-white border-purple-200 text-purple-700 hover:text-purple-800"
+                    className="text-xs h-7 bg-white/50 hover:bg-white border-red-200 text-red-700 hover:text-red-800"
                   >
                     🏠 Personal
                   </Button>
@@ -767,7 +807,7 @@ const Inator = () => {
                       )
                     }
                     disabled={loadingTasks}
-                    className="text-xs h-7 bg-white/50 hover:bg-white border-purple-200 text-purple-700 hover:text-purple-800"
+                    className="text-xs h-7 bg-white/50 hover:bg-white border-red-200 text-red-700 hover:text-red-800"
                   >
                     📅 Appointments
                   </Button>
@@ -781,12 +821,12 @@ const Inator = () => {
                       )
                     }
                     disabled={loadingTasks}
-                    className="text-xs h-7 bg-white/50 hover:bg-white border-purple-200 text-purple-700 hover:text-purple-800"
+                    className="text-xs h-7 bg-white/50 hover:bg-white border-red-200 text-red-700 hover:text-red-800"
                   >
                     💼 Work
                   </Button>
                 </div>
-                <p className="text-xs text-purple-700 dark:text-purple-300 flex items-center">
+                <p className="text-xs text-red-700 dark:text-red-300 flex items-center">
                   <Zap className="w-3 h-3 mr-1" />
                   AI analyzes your notes for actionable tasks. Auto-refreshes
                   once daily, instant refresh on button click.
@@ -795,8 +835,8 @@ const Inator = () => {
             </div>
           ) : (
             <div className="text-center py-8">
-              <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Zap className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Zap className="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
               <p className="text-gray-600 dark:text-gray-400 mb-2">
                 No intelligent insights available yet
@@ -811,7 +851,7 @@ const Inator = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAddDialog(true)}
-                  className="text-xs h-8 border-purple-200 text-purple-700 hover:bg-purple-50"
+                  className="text-xs h-8 border-red-200 text-red-700 hover:bg-red-50"
                 >
                   <Plus className="w-3 h-3 mr-1" />
                   Add Note
@@ -821,7 +861,7 @@ const Inator = () => {
                   size="sm"
                   onClick={() => fetchIntelligentTasks(undefined, true)}
                   disabled={loadingTasks}
-                  className="text-xs h-8 border-purple-200 text-purple-700 hover:bg-purple-50"
+                  className="text-xs h-8 border-red-200 text-red-700 hover:bg-red-50"
                 >
                   <RefreshCw
                     className={`w-3 h-3 mr-1 ${
