@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import React, { useState } from "react";
 import { Button } from "../ui/button";
 import {
@@ -19,6 +19,7 @@ import Addnotedialog from "./addnotedialog";
 
 const Sidebar = ({ allNotes, groups }: any) => {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isCollapsed } = useSidebar();
   const [showAddNoteDialog, setShowNoteDialog] = useState(false);
   const [selectedNote, setSelectedNote] = useState(null);
@@ -27,7 +28,7 @@ const Sidebar = ({ allNotes, groups }: any) => {
   }>({});
 
   // Helper function to check if a route is active
-  const isActive = (route: string) => {
+  const isActive = (route: string, groupId?: string) => {
     if (route === "/inator") {
       return pathname === "/inator" || pathname === "/";
     }
@@ -35,13 +36,35 @@ const Sidebar = ({ allNotes, groups }: any) => {
       return pathname === "/inator/chat";
     }
     if (route === "/inator/alldata") {
+      if (groupId === "all") {
+        // "All Notes" is active when no group filter is applied
+        return pathname === "/inator/alldata" && !searchParams.get("group");
+      }
+      if (groupId === "ungrouped") {
+        // "Ungrouped" is active when group=ungrouped
+        return (
+          pathname === "/inator/alldata" &&
+          searchParams.get("group") === "ungrouped"
+        );
+      }
+      if (groupId) {
+        // Check if we're viewing this specific group
+        return (
+          pathname === "/inator/alldata" &&
+          searchParams.get("group") === groupId
+        );
+      }
       return pathname === "/inator/alldata";
     }
     return pathname.startsWith(route);
   };
 
   // Helper function to get button classes based on active state
-  const getButtonClasses = (route: string, isChat: boolean = false) => {
+  const getButtonClasses = (
+    route: string,
+    isChat: boolean = false,
+    groupId?: string
+  ) => {
     const baseClasses = isCollapsed
       ? "w-full justify-center px-3 py-3 rounded-lg mx-2 transition-colors duration-200"
       : "w-full justify-start px-6 py-3 rounded-r-full mx-0 transition-colors duration-200";
@@ -52,7 +75,7 @@ const Sidebar = ({ allNotes, groups }: any) => {
       "text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20";
 
     return `${baseClasses} ${
-      isActive(route) ? activeClasses : inactiveClasses
+      isActive(route, groupId) ? activeClasses : inactiveClasses
     }`;
   };
 
@@ -234,28 +257,83 @@ const Sidebar = ({ allNotes, groups }: any) => {
                   </h3>
                 </div>
                 <div className="space-y-2">
+                  {/* Show All Notes Option */}
+                  <Link href="/inator/alldata" className="block">
+                    <Button
+                      variant="ghost"
+                      className={getButtonClasses(
+                        "/inator/alldata",
+                        false,
+                        "all"
+                      )}
+                    >
+                      <div className="w-5 h-5 rounded-full mr-4 bg-gray-400 dark:bg-gray-600" />
+                      <span className="text-sm font-medium flex-1 text-left">
+                        All Notes
+                      </span>
+                      <span className="text-xs text-gray-400 ml-2">
+                        {allNotes.length}
+                      </span>
+                    </Button>
+                  </Link>
+
+                  {/* Ungrouped Notes Option */}
+                  {groupedNotes["ungrouped"] &&
+                    groupedNotes["ungrouped"].length > 0 && (
+                      <Link
+                        href="/inator/alldata?group=ungrouped"
+                        className="block"
+                      >
+                        <Button
+                          variant="ghost"
+                          className={getButtonClasses(
+                            "/inator/alldata",
+                            false,
+                            "ungrouped"
+                          )}
+                        >
+                          <FolderIcon className="w-5 h-5 mr-4 text-gray-500 dark:text-gray-400" />
+                          <span className="text-sm font-medium flex-1 text-left">
+                            Ungrouped
+                          </span>
+                          <span className="text-xs text-gray-400 ml-2">
+                            {groupedNotes["ungrouped"].length}
+                          </span>
+                        </Button>
+                      </Link>
+                    )}
+
                   {groups.map((group: any) => {
                     const groupNotes = groupedNotes[group.id] || [];
                     return (
-                      <Button
+                      <Link
                         key={group.id}
-                        variant="ghost"
-                        className="w-full justify-start px-6 py-3 text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-r-full mx-0"
+                        href={`/inator/alldata?group=${group.id}`}
+                        className="block"
                       >
-                        <div
-                          className={`w-5 h-5 rounded-full mr-4 ${getColorClass(
-                            group.color
-                          )}`}
-                        />
-                        <span className="text-sm font-medium flex-1 text-left">
-                          {group.name}
-                        </span>
-                        {groupNotes.length > 0 && (
-                          <span className="text-xs text-gray-400 ml-2">
-                            {groupNotes.length}
+                        <Button
+                          variant="ghost"
+                          className={getButtonClasses(
+                            "/inator/alldata",
+                            false,
+                            group.id
+                          )}
+                        >
+                          <div
+                            className={`w-5 h-5 rounded-full mr-4 ${getColorClass(
+                              group.color
+                            )}`}
+                          />
+                          <span className="text-sm font-medium flex-1 text-left">
+                            {group.name}
                           </span>
-                        )}
-                      </Button>
+                          {groupNotes.length > 0 && (
+                            <span className="text-xs text-gray-400 ml-2">
+                              {groupNotes.length}
+                            </span>
+                          )}
+                        </Button>
+                      </Link>
                     );
                   })}
                 </div>

@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       )
       .join("\n---\n");
 
-    console.log("Notes context for AI analysis:", notesContext);
+    // console.log("Notes context for AI analysis:", notesContext);
 
     // Use AI to analyze notes and extract intelligent tasks
     const google = createGoogleGenerativeAI({

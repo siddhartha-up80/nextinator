@@ -16,6 +16,7 @@ import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Input } from "../ui/input";
+import { AutoExpandingTextarea } from "../ui/auto-expanding-textarea";
 import { Button } from "../ui/button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -90,8 +91,26 @@ export default function AIChatbox({
   const [isRateLimited, setIsRateLimited] = useState<boolean>(false);
   const [initialMessageProcessed, setInitialMessageProcessed] =
     useState<boolean>(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const scrollRef = useRef<HTMLInputElement>(null);
+  // Handle Enter key for submit (but allow Shift+Enter for new lines)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      // Trigger form submit if we have content
+      if (input.trim()) {
+        const form = e.currentTarget.form;
+        if (form) {
+          const submitEvent = new Event("submit", {
+            cancelable: true,
+            bubbles: true,
+          });
+          form.dispatchEvent(submitEvent);
+        }
+      }
+    }
+  };
+
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const isCreatingSession = useRef<boolean>(false);
   const { showToast } = useToast();
 
@@ -365,7 +384,7 @@ export default function AIChatbox({
   const lastMessageIsUser = messages[messages.length - 1]?.role === "user";
 
   return (
-    <div className="flex h-[calc(100vh-80px)] fixed top-16 bottom-0 md:w-[80%] w-[92%] mx-auto flex-col  justify-between overflow-hidden">
+    <div className="flex h-[calc(100vh-80px)] fixed top-16 bottom-0 mx-auto flex-col  justify-between overflow-hidden">
       <div
         className="overflow-y-auto px-2 pt-2 flex-1 h-full w-full overflow-x-hidden"
         ref={scrollRef}
@@ -434,7 +453,7 @@ export default function AIChatbox({
                           },
                         };
                         handleInputChange(
-                          syntheticEvent as React.ChangeEvent<HTMLInputElement>
+                          syntheticEvent as React.ChangeEvent<HTMLTextAreaElement>
                         );
                       }}
                     >
@@ -463,10 +482,10 @@ export default function AIChatbox({
           </div>
         )}
       </div>
-      <div className="pb-[calc(8vh)] md:pb-0">
+      <div className="pb-[calc(8vh)] md:pb-0 mx-auto">
         <form
           onSubmit={handleSubmit}
-          className="m-1 flex gap-1 max-w-5xl mx-auto"
+          className="m-1 flex gap-1 max-w-5xl mx-auto items-center"
         >
           {" "}
           <Button
@@ -479,14 +498,17 @@ export default function AIChatbox({
           >
             <Trash />
           </Button>
-          <Input
+          <AutoExpandingTextarea
             value={input}
             onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
             placeholder="Ask something from your data..."
-            className=""
+            className="flex-1 min-w-[60vw] mx-auto"
             ref={inputRef}
+            minRows={1}
+            maxRows={10}
           />
-          <Button type="submit" id="sendbutton">
+          <Button type="submit" id="sendbutton" className="shrink-0">
             Send
           </Button>
         </form>
