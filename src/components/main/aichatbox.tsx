@@ -384,7 +384,7 @@ export default function AIChatbox({
   const lastMessageIsUser = messages[messages.length - 1]?.role === "user";
 
   return (
-    <div className="flex h-[calc(100vh-80px)] fixed top-16 bottom-0 mx-auto flex-col  justify-between overflow-hidden">
+    <div className="flex h-[calc(100vh-80px)] fixed top-16 bottom-0 mx-auto flex-col  justify-between overflow-hidden min-w-[80vw]">
       <div
         className="overflow-y-auto px-2 pt-2 flex-1 h-full w-full overflow-x-hidden"
         ref={scrollRef}
