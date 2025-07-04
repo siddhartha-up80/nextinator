@@ -6,24 +6,28 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "../ui/dialog";
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
-  FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import LoadingButton from "./loadingbutton";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { CheckCircle, Copy, Trash, FileText, Upload, Plus } from "lucide-react";
+import { 
+  CheckCircle, 
+  Copy, 
+  Trash, 
+  FileText, 
+  Upload, 
+  Plus,
+  X,
+  Pin
+} from "lucide-react";
 import { Button } from "../ui/button";
 import { useToast } from "@/components/ui/toast";
 import pdfToText from "react-pdftotext";
@@ -60,7 +64,9 @@ const Addnotedialog = ({
   const [showNewGroupInput, setShowNewGroupInput] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
   const { showToast } = useToast();
+
   const handleCopy = (content: any) => {
     navigator.clipboard
       .writeText(content)
@@ -127,30 +133,34 @@ const Addnotedialog = ({
     }
   };
 
-  const createGroup = async () => {
+  const createNewGroup = async () => {
     if (!newGroupName.trim()) return;
 
     setCreatingGroup(true);
     try {
       const response = await fetch("/api/groups", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newGroupName.trim() }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newGroupName.trim(),
+          color: "blue", // Default color
+        }),
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setGroups([...groups, data.group]);
-        form.setValue("groupId", data.group.id);
+        const newGroup = await response.json();
+        setGroups((prev) => [...prev, newGroup.group]);
+        form.setValue("groupId", newGroup.group.id);
         setNewGroupName("");
         setShowNewGroupInput(false);
         showToast("Group created successfully!", "success");
       } else {
-        const error = await response.json();
-        showToast(error.error || "Failed to create group", "error");
+        throw new Error("Failed to create group");
       }
     } catch (error) {
-      console.error("Failed to create group:", error);
+      console.error("Error creating group:", error);
       showToast("Failed to create group", "error");
     } finally {
       setCreatingGroup(false);
@@ -316,234 +326,278 @@ const Addnotedialog = ({
           setUploadMode("text");
           setSelectedFile(null);
           setUploadStatus("");
+          setIsPinned(false);
           form.reset();
         }
       }}
     >
-      <DialogContent className="min-w-[60vw] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{noteToEdit ? "Edit Data" : "Add Data"}</DialogTitle>
-        </DialogHeader>
-
-        {/* Mode Toggle */}
-        {!noteToEdit && (
-          <div className="flex gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <Button
-              type="button"
-              variant={uploadMode === "text" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setUploadMode("text")}
-              className="flex items-center gap-2"
-            >
-              <FileText size={16} />
-              Text Input
-            </Button>
-            <Button
-              type="button"
-              variant={uploadMode === "pdf" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setUploadMode("pdf")}
-              className="flex items-center gap-2"
-            >
-              <Upload size={16} />
-              PDF Upload
-            </Button>
-          </div>
-        )}
-
+      <DialogContent 
+        className="max-w-[600px] h-[80vh] p-0 rounded-xl border-0 shadow-2xl overflow-hidden dark:shadow-gray-900/50 bg-white dark:bg-gray-800 [&>button]:hidden"
+      >
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-            {" "}
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Data Title</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Add title for your data" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="groupId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Group (Optional)</FormLabel>
-                  <FormControl>
-                    <div className="space-y-2">
-                      <select
-                        {...field}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-background text-foreground"
-                      >
-                        <option value="">No Group</option>
-                        {groups.map((group) => (
-                          <option key={group.id} value={group.id}>
-                            {group.name} ({group._count.notes} notes)
-                          </option>
-                        ))}
-                      </select>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
+            {/* Header with pin and close */}
+            <div className="flex items-center justify-between p-3 pb-1">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsPinned(!isPinned)}
+                  className={`p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors ${
+                    isPinned ? 'text-orange-500' : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                  title={isPinned ? "Unpin note" : "Pin note"}
+                >
+                  <Pin className="w-4 h-4" />
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setOpen(false)}
+                className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-gray-600 dark:text-gray-400"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
 
-                      {!showNewGroupInput ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowNewGroupInput(true)}
-                          className="w-full"
-                        >
-                          <Plus size={16} className="mr-2" />
-                          Create New Group
-                        </Button>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Group name"
-                            value={newGroupName}
-                            onChange={(e) => setNewGroupName(e.target.value)}
-                            onKeyPress={(e) =>
-                              e.key === "Enter" && createGroup()
-                            }
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={createGroup}
-                            disabled={!newGroupName.trim() || creatingGroup}
-                          >
-                            {creatingGroup ? "..." : "Create"}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setShowNewGroupInput(false);
-                              setNewGroupName("");
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {uploadMode === "text" || noteToEdit ? (
+            {/* Mode Toggle for new notes */}
+            {!noteToEdit && (
+              <div className="px-3 pb-1">
+                <div className="flex gap-1 p-1 bg-black/5 dark:bg-white/5 rounded-lg">
+                  <Button
+                    type="button"
+                    variant={uploadMode === "text" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setUploadMode("text")}
+                    className="flex items-center gap-2 rounded-md"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Text
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={uploadMode === "pdf" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setUploadMode("pdf")}
+                    className="flex items-center gap-2 rounded-md"
+                  >
+                    <Upload className="w-4 h-4" />
+                    PDF
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Title Field */}
+            <div className="px-3 pb-1">
               <FormField
                 control={form.control}
-                name="content"
+                name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Data Content</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Add your data here"
-                        className="min-h-[50vh]"
+                      <Input
+                        placeholder="Title"
                         {...field}
+                        className="border-0 bg-transparent text-lg font-medium placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-0 focus:border-0 px-0 shadow-none text-gray-900 dark:text-gray-100"
                       />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
-            ) : (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Upload PDF File</label>
-                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
-                  <input
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="pdf-upload"
-                  />
-                  <label
-                    htmlFor="pdf-upload"
-                    className="cursor-pointer flex flex-col items-center gap-2"
-                  >
-                    <Upload size={32} className="text-gray-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {selectedFile
-                        ? selectedFile.name
-                        : "Click to select a PDF file"}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      PDF files only, max 10MB
-                    </span>
-                  </label>
-                </div>{" "}
-                {selectedFile && (
-                  <div className="text-sm text-green-600 dark:text-green-400">
-                    ✓ File selected: {selectedFile.name}
-                  </div>
-                )}
-                {uploadStatus && (
-                  <div className="text-sm text-blue-600 dark:text-blue-400">
-                    {uploadStatus}
-                  </div>
-                )}
-              </div>
-            )}{" "}
-            <DialogFooter className="gap-1 flex-row w-full">
-              <div className="gap-1 flex-row w-full justify-between items-center flex">
-                {uploadMode === "text" || noteToEdit ? (
-                  <LoadingButton
-                    variant={"secondary"}
-                    loading={deleteInProgress}
-                    disabled={form.formState.isSubmitting || uploadInProgress}
-                    onClick={() => handleCopy(form.getValues("content"))}
-                    type="button"
-                    className="w-max"
-                  >
-                    {copied ? (
-                      <>
-                        Copied <CheckCircle size={18} className="ml-2" />
-                      </>
-                    ) : (
-                      <>
-                        Copy <Copy size={18} className="ml-2" />
-                      </>
-                    )}
-                  </LoadingButton>
-                ) : (
-                  <div /> /* Empty div for spacing */
-                )}
-                <div className="gap-2 flex-row justify-between items-center flex">
-                  {noteToEdit && (
-                    <LoadingButton
-                      variant={"secondary"}
-                      loading={deleteInProgress}
-                      disabled={form.formState.isSubmitting || uploadInProgress}
-                      onClick={deleteNote}
-                      type="button"
-                      className="w-max"
+            </div>
+
+            {/* Content Field */}
+            <div className="px-3 pb-2 flex-1 flex flex-col">
+              {uploadMode === "pdf" && !noteToEdit ? (
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
+                    <Upload className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">Drop PDF here or click to browse</p>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="pdf-upload"
+                    />
+                    <label
+                      htmlFor="pdf-upload"
+                      className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 cursor-pointer transition-colors"
                     >
-                      <Trash />
-                    </LoadingButton>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Choose PDF
+                    </label>
+                  </div>
+                  {selectedFile && (
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                      <p className="text-green-800 dark:text-green-200 text-sm">✓ {selectedFile.name}</p>
+                    </div>
                   )}
-                  <LoadingButton
-                    type="submit"
-                    loading={form.formState.isSubmitting || uploadInProgress}
-                    disabled={
-                      deleteInProgress ||
-                      (uploadMode === "pdf" && !selectedFile)
-                    }
-                    className="w-max"
-                  >
-                    {uploadMode === "pdf" && !noteToEdit
-                      ? "Upload & Process PDF"
-                      : "Submit"}
-                  </LoadingButton>
+                  {uploadStatus && (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <p className="text-blue-800 dark:text-blue-200 text-sm">{uploadStatus}</p>
+                    </div>
+                  )}
                 </div>
+              ) : (
+                <FormField
+                  control={form.control}
+                  name="content"
+                  render={({ field }) => (
+                    <FormItem className="flex-1 flex flex-col">
+                      <FormControl className="flex-1">
+                        <Textarea
+                          placeholder="Take a note..."
+                          {...field}
+                          className="border-0 bg-transparent resize-none h-full min-h-[150px] placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-0 focus:border-0 px-0 shadow-none text-gray-900 dark:text-gray-100"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+
+            {/* Group Selection */}
+            <div className="px-3 pb-2">
+              <FormField
+                control={form.control}
+                name="groupId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <select
+                            {...field}
+                            className="flex-1 w-[70%] px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
+                          >
+                            <option value="" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">No Group</option>
+                            {groups.map((group) => (
+                              <option key={group.id} value={group.id} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+                                {group.name} ({group._count.notes} notes)
+                              </option>
+                            ))}
+                          </select>
+
+                          {!showNewGroupInput ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowNewGroupInput(true)}
+                              className="w-[30%] text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm"
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Create Group
+                            </Button>
+                          ) : (
+                            <div className="w-[30%] flex gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setShowNewGroupInput(false);
+                                  setNewGroupName("");
+                                }}
+                                className="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs px-2"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {showNewGroupInput && (
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Group name"
+                              value={newGroupName}
+                              onChange={(e) => setNewGroupName(e.target.value)}
+                              onKeyPress={(e) =>
+                                e.key === "Enter" && createNewGroup()
+                              }
+                              className="text-sm flex-1"
+                            />
+                            <LoadingButton
+                              type="button"
+                              size="sm"
+                              loading={creatingGroup}
+                              onClick={createNewGroup}
+                              disabled={!newGroupName.trim()}
+                              className="px-4"
+                            >
+                              Add
+                            </LoadingButton>
+                          </div>
+                        )}
+                      </div>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Action Bar */}
+            <div className="flex items-center justify-between px-3 py-2 border-t border-black/10 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                {/* Copy Button */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleCopy(form.getValues("content"))}
+                  className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm"
+                  title="Copy content"
+                >
+                  {copied ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+
+                {/* Delete Button (only for existing notes) */}
+                {noteToEdit && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={deleteNote}
+                    disabled={deleteInProgress}
+                    className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm"
+                    title="Delete note"
+                  >
+                    <Trash className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
-            </DialogFooter>
+
+              {/* Right side actions */}
+              <div className="flex items-center gap-2">
+                {/* Submit Button */}
+                <LoadingButton
+                  type="submit"
+                  loading={form.formState.isSubmitting || uploadInProgress}
+                  disabled={
+                    deleteInProgress ||
+                    (uploadMode === "pdf" && !selectedFile && !noteToEdit)
+                  }
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium"
+                >
+                  {uploadMode === "pdf" && !noteToEdit
+                    ? "Upload PDF"
+                    : noteToEdit
+                    ? "Update"
+                    : "Done"}
+                </LoadingButton>
+              </div>
+            </div>
           </form>
         </Form>
       </DialogContent>
