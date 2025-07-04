@@ -17,6 +17,7 @@ import {
   Settings,
 } from "lucide-react";
 import GroupManagementDialog from "@/components/main/groupmanagementdialog";
+import { sortNotesWithPinned } from "@/lib/pin-utils";
 
 interface Group {
   id: string;
@@ -513,7 +514,7 @@ const RegularNotesView = ({
     <>
       {/* Notes Grid */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mx-auto">
-        {notes.map((note) => (
+        {sortNotesWithPinned(notes).map((note) => (
           <Note note={note} key={note.id} />
         ))}
 

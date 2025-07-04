@@ -9,7 +9,9 @@ import {
   CardTitle,
 } from "../ui/card";
 import { useRouter } from "next/navigation";
-import { FolderIcon } from "lucide-react";
+import { FolderIcon, Pin } from "lucide-react";
+import { isNotePinned } from "@/lib/pin-utils";
+import { useEffect, useState } from "react";
 
 interface NoteWithGroup extends NoteModel {
   group?: {
@@ -25,6 +27,11 @@ interface NoteProps {
 
 const Note = ({ note }: NoteProps) => {
   const router = useRouter();
+  const [isPinned, setIsPinned] = useState(false);
+
+  useEffect(() => {
+    setIsPinned(isNotePinned(note.id));
+  }, [note.id]);
 
   const wasUpdated = note.updatedAt > note.createdAt;
 
@@ -38,14 +45,16 @@ const Note = ({ note }: NoteProps) => {
 
   return (
     <Card
-      className="cursor-pointer hover:shadow-md transition-all duration-300 ease-in-out hover:shadow-red-500 max-w-[90vw]"
+      className={`cursor-pointer hover:shadow-md transition-all duration-300 ease-in-out hover:shadow-red-500 max-w-[90vw] ${
+        isPinned ? 'ring-2 ring-orange-200 dark:ring-orange-800' : ''
+      }`}
       onClick={handleClick}
     >
-      {" "}
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="flex items-center gap-2">
+              {isPinned && <Pin className="w-4 h-4 text-orange-500" />}
               {note.title}
               {note.group && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">

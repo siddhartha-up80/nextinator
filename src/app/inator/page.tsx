@@ -13,6 +13,7 @@ import {
   FileText,
   Eye,
   RefreshCw,
+  Pin,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,12 +29,14 @@ import {
 } from "lucide-react";
 import Addnotedialog from "@/components/main/addnotedialog";
 import { useUser } from "@clerk/nextjs";
+import { sortNotesWithPinned, isNotePinned } from "@/lib/pin-utils";
 
 interface Note {
   id: string;
   title: string;
   content: string;
   createdAt: string;
+  updatedAt?: string;
   group?: {
     color: string;
     name: string;
@@ -48,6 +51,7 @@ const Inator = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [recentChats, setRecentChats] = useState<any[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [loadingChats, setLoadingChats] = useState(true);
   const [totalChats, setTotalChats] = useState(0);
   const [sharedChats, setSharedChats] = useState(0);
@@ -354,6 +358,8 @@ const Inator = () => {
   const handleNoteEditSuccess = () => {
     fetchLatestNotes(); // Refetch notes after editing
     fetchIntelligentTasks(undefined, false); // Refetch tasks as notes have changed (not manual refresh)
+    // Trigger re-render to update pin status
+    setRefreshKey(prev => prev + 1);
   };
 
   // Function to get varied character limits for different visual heights
@@ -583,40 +589,46 @@ const Inator = () => {
             ))}
           </div>
         ) : (
-          <div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
-            {notes.map((note, index) => (
-              <Card
-                key={note.id}
-                className={`p-4 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02] break-inside-avoid mb-4 ${getColorClass(
-                  note.group?.color || "gray"
-                )}`}
-                onClick={() => handleNoteClick(note)}
-              >
-                <div className="flex flex-col">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 line-clamp-2">
-                    {note.title || "Untitled"}
-                  </h3>
-                  <p
-                    className={`text-gray-600 dark:text-gray-300 text-sm mb-3 ${getLineClamp(
-                      index
-                    )} overflow-hidden`}
-                  >
-                    {note.content.length > getContentLimit(index)
-                      ? note.content.substring(0, getContentLimit(index)) +
-                        "..."
-                      : note.content}
-                  </p>
-                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                    {note.group && (
-                      <span className="px-2 py-1 rounded-full bg-white/50 dark:bg-gray-800/50">
-                        {note.group.name}
-                      </span>
-                    )}
-                    <span>{new Date(note.createdAt).toLocaleDateString()}</span>
+          <div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4" key={refreshKey}>
+            {sortNotesWithPinned(notes).map((note, index) => {
+              const isPinned = isNotePinned(note.id);
+              return (
+                <Card
+                  key={note.id}
+                  className={`p-4 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02] break-inside-avoid mb-4 ${getColorClass(
+                    note.group?.color || "gray"
+                  )} ${isPinned ? 'ring-2 ring-orange-200 dark:ring-orange-800' : ''}`}
+                  onClick={() => handleNoteClick(note)}
+                >
+                  <div className="flex flex-col">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 flex items-center gap-2">
+                        {isPinned && <Pin className="w-4 h-4 text-orange-500 flex-shrink-0" />}
+                        {note.title || "Untitled"}
+                      </h3>
+                    </div>
+                    <p
+                      className={`text-gray-600 dark:text-gray-300 text-sm mb-3 ${getLineClamp(
+                        index
+                      )} overflow-hidden`}
+                    >
+                      {note.content.length > getContentLimit(index)
+                        ? note.content.substring(0, getContentLimit(index)) +
+                          "..."
+                        : note.content}
+                    </p>
+                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                      {note.group && (
+                        <span className="px-2 py-1 rounded-full bg-white/50 dark:bg-gray-800/50">
+                          {note.group.name}
+                        </span>
+                      )}
+                      <span>{new Date(note.createdAt).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
 
             {/* View All Notes Card */}
             <Link href="/inator/alldata">

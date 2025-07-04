@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { useToast } from "@/components/ui/toast";
+import { getPinnedNotes, setPinnedNotes, isNotePinned } from "@/lib/pin-utils";
 import pdfToText from "react-pdftotext";
 
 interface AddnotedialogProps {
@@ -66,6 +67,41 @@ const Addnotedialog = ({
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const { showToast } = useToast();
+
+  // Pin functionality
+  const togglePin = (noteId: string) => {
+    const pinnedNotes = getPinnedNotes();
+    const isCurrentlyPinned = pinnedNotes.includes(noteId);
+    
+    let updatedPinnedNotes;
+    if (isCurrentlyPinned) {
+      updatedPinnedNotes = pinnedNotes.filter((id: string) => id !== noteId);
+      showToast("Note unpinned", "success");
+    } else {
+      updatedPinnedNotes = [...pinnedNotes, noteId];
+      showToast("Note pinned", "success");
+    }
+    
+    setPinnedNotes(updatedPinnedNotes);
+    setIsPinned(!isCurrentlyPinned);
+    
+    // Close dialog and refresh the page to update the note order
+    setOpen(false);
+    if (onSuccess) {
+      onSuccess();
+    } else {
+      router.refresh();
+    }
+  };
+
+  // Check if current note is pinned on load
+  useEffect(() => {
+    if (noteToEdit?.id) {
+      setIsPinned(isNotePinned(noteToEdit.id));
+    } else {
+      setIsPinned(false);
+    }
+  }, [noteToEdit]);
 
   const handleCopy = (content: any) => {
     navigator.clipboard
@@ -343,11 +379,12 @@ const Addnotedialog = ({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setIsPinned(!isPinned)}
+                  onClick={() => noteToEdit?.id ? togglePin(noteToEdit.id) : null}
                   className={`p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors ${
                     isPinned ? 'text-orange-500' : 'text-gray-600 dark:text-gray-400'
-                  }`}
-                  title={isPinned ? "Unpin note" : "Pin note"}
+                  } ${!noteToEdit?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={!noteToEdit?.id ? "Save note first to pin" : (isPinned ? "Unpin note" : "Pin note")}
+                  disabled={!noteToEdit?.id}
                 >
                   <Pin className="w-4 h-4" />
                 </Button>
